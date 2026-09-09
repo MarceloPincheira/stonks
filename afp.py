@@ -27,6 +27,9 @@ COTIZACION_OBLIGATORIA = 10.0   # a la cuenta individual
 SALUD = 7.0                     # FONASA o Isapre (el plan puede costar más)
 CESANTIA_INDEFINIDO = 0.6       # seguro de cesantía, contrato indefinido
 TOPE_IMPONIBLE_UF = 90.0        # tope 2026 para AFP y salud
+# El seguro de cesantía se rige por su propio tope, bastante más alto: usar el de la
+# AFP subestima el descuento de quien gana entre 90 y 135,2 UF. (AFC / SP, 2026.)
+TOPE_CESANTIA_UF = 135.2
 
 # Ley 21.735 (2025): la cotización del empleador sube gradualmente hasta 8,5% en
 # 2033, pero sólo una fracción llega a la cuenta individual; el resto financia el
@@ -40,6 +43,9 @@ EDAD_PENSION = {"hombre": 65, "mujer": 60}
 # Cada fila: (tope del tramo en UTM, factor, rebaja en UTM). None = último tramo.
 # El SII la publica en forma directa -- impuesto = base * factor - rebaja -- y las
 # rebajas empalman los tramos: 0,04*30-0,54 = 0,08*30-1,74 = 0,66 UTM, y así.
+# Ojo con los dos últimos tramos: el del 35% llega hasta 310 UTM (no 150), y por eso
+# la rebaja del 40% es 38,82 -- 0,35*310-23,32 = 0,40*310-38,82 = 85,18 UTM. Cortarlo
+# antes deja la escala continua igual, así que el error no se delata solo.
 IUSC = [
     (13.5, 0.000, 0.00),      # exento
     (30.0, 0.040, 0.54),
@@ -47,8 +53,8 @@ IUSC = [
     (70.0, 0.135, 4.49),
     (90.0, 0.230, 11.14),
     (120.0, 0.304, 17.80),
-    (150.0, 0.350, 23.32),
-    (None, 0.400, 30.82),
+    (310.0, 0.350, 23.32),
+    (None, 0.400, 38.82),
 ]
 
 # Valores de referencia, editables en el perfil porque cambian todos los meses.
@@ -263,7 +269,9 @@ def proyectar(perfil, hasta_edad=None, trabajo_hasta=None):
     # pero no es cotización obligatoria: no rebaja la base del impuesto.
     adicional = (perfil.get("salud_extra", 0.0) or 0.0) if perfil.get("salud") == "isapre" else 0.0
     salud = salud_legal + adicional
-    cesantia = imponible * CESANTIA_INDEFINIDO / 100 if perfil["contrato_indefinido"] else 0.0
+    imponible_cesantia = min(sueldo_imponible, TOPE_CESANTIA_UF * uf)
+    cesantia = (imponible_cesantia * CESANTIA_INDEFINIDO / 100
+                if perfil["contrato_indefinido"] else 0.0)
 
     base_tributable = sueldo_imponible - cotizacion - comision - salud_legal - cesantia
     impuesto = impuesto_unico(base_tributable, perfil.get("utm", UTM_REFERENCIA))
@@ -335,6 +343,8 @@ def proyectar(perfil, hasta_edad=None, trabajo_hasta=None):
         "bruto_total": round(sueldo_imponible + no_imponible, 2),
         "topado": sueldo_imponible > tope,
         "tope_imponible": round(tope, 2),
+        "tope_cesantia": round(TOPE_CESANTIA_UF * uf, 2),
+        "topado_cesantia": sueldo_imponible > TOPE_CESANTIA_UF * uf,
         "descuentos": {
             "cotizacion": round(cotizacion, 2),
             "comision": round(comision, 2),
@@ -357,7 +367,14 @@ def proyectar(perfil, hasta_edad=None, trabajo_hasta=None):
         "meses_retiro": meses_retiro,
         "total_cotizado": round(aportado, 2),
         "rentabilidad_ganada": round(saldo_al_jubilar - perfil["saldo_afp"] - aportado, 2),
-        "fondo_inicial": perfil["fondo"],
+        "fondo_elegido": perfil["fondo"],
+        # Con un esquema de traspasos por edad la elección de fondo no se aplica: el
+        # esquema asigna por edad. Se informa cuál se usó de verdad para que la UI
+        # pueda decirlo en vez de callarlo.
+        "fondo_ignorado": perfil.get("trayectoria", "fijo") != "fijo",
+        "fondo_inicial": fondo_a_edad(
+            edad, perfil["fondo"], sexo, perfil.get("trayectoria", "fijo"),
+            perfil.get("destino_salida_a", "B")),
         "fondo_final": fondo_a_edad(
             edad_pension, perfil["fondo"], sexo, perfil.get("trayectoria", "fijo"),
             perfil.get("destino_salida_a", "B")),
@@ -365,7 +382,8 @@ def proyectar(perfil, hasta_edad=None, trabajo_hasta=None):
         "cnu": round(cnu, 2),
         "expectativa_vida": EXPECTATIVA_VIDA[sexo],
         "tasa_tecnica": TASA_TECNICA,
-        "sale_de_a": perfil["fondo"] == "A" and edad < EDAD_SALIDA_FONDO_A[sexo],
+        "sale_de_a": (perfil.get("trayectoria", "fijo") == "fijo"
+                      and perfil["fondo"] == "A" and edad < EDAD_SALIDA_FONDO_A[sexo]),
         "edad_salida_a": EDAD_SALIDA_FONDO_A[sexo],
         "trayectoria": perfil.get("trayectoria", "fijo"),
         "fondo_por_defecto": fondo_por_defecto(edad, sexo),

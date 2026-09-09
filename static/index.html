@@ -59,7 +59,11 @@
       <label>Meses de pago
         <input type="text" id="payout_months" value="3,4,6,9,12" placeholder="3,6,9,12">
       </label>
+      <label><span class="lbl">Impuesto sobre los repartos (%)</span>
+        <input type="number" id="dividend_tax" value="0" step="1" min="0" max="100">
+      </label>
     </div>
+    <p class="hint" id="dividend-tax-hint"></p>
 
     <div class="switch" id="reinvest-row" hidden>
       <label class="check"><input type="checkbox" id="reinvest" checked>
@@ -174,6 +178,7 @@
     <div class="goal-banner" id="goal-banner" hidden></div>
     <div class="goal-banner fi" id="fi-banner" hidden></div>
     <div class="goal-banner afp" id="afp-banner" hidden></div>
+    <div class="goal-banner" id="sensitivity-banner" hidden></div>
     <div class="kpis" id="kpis"></div>
     <div class="tabs" id="chart-units">
       <button type="button" class="tab active" data-units="nominal">Pesos nominales</button>

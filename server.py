@@ -112,7 +112,12 @@ class Handler(SimpleHTTPRequestHandler):
                 return self._json({"profile": perfil, "afp": afp.proyectar(perfil)})
             if self.path == "/api/calculate":
                 data = engine.normalize_input(con_perfil(payload))
-                return self._json({"input": data, "result": engine.project(data)})
+                result = engine.project(data)
+                # La proyección es un escenario, no un pronóstico: viaja con el rango
+                # que producen ±1 pp de retorno y ±1 pp de inflación para que la UI
+                # no publique "se agota a los 71" como si fuera una medición.
+                return self._json({"input": data, "result": result,
+                                   "sensitivity": engine.sensitivity(data, result)})
             if self.path == "/api/scenarios":
                 data = engine.normalize_input(payload)
                 return self._json(db.save_scenario(data), 201)
@@ -163,16 +168,25 @@ def con_perfil(payload):
 
     # La serie de la AFP arranca hoy y la inversión en inicio_mes/inicio_anio: hay que
     # alinearlas antes de mandarlas al motor, que sólo entiende meses de proyección.
+    #
+    # Dos cuidados que antes no estaban:
+    #   * `serie_mensual` parte en el mes SIGUIENTE a hoy, así que el saldo de hoy hay
+    #     que ponerlo delante; sin eso toda la curva quedaba corrida un mes.
+    #   * si la inversión empezó ANTES que hoy no hay saldo AFP que mostrar en esos
+    #     meses: van en None (hueco en el gráfico), no descartados. Descartarlos sin
+    #     dejar el hueco desplazaba la curva entera hacia atrás, y el desplazamiento
+    #     crecía un mes por cada mes que pasaba sin volver a guardar el perfil.
     hoy = date.today()
     desfase = (perfil["inicio_anio"] - hoy.year) * 12 + (perfil["inicio_mes"] - hoy.month)
-    serie = proyeccion["serie_mensual"]
-    alineada = []
-    for i in range(len(serie)):
-        j = desfase + i
-        if j < 0:
-            continue
-        alineada.append(serie[j] if j < len(serie) else 0.0)
-    edad_inicio = perfil["edad"] + max(0, desfase) / 12
+    # índice t = meses transcurridos desde hoy; t = 0 es el saldo actual
+    serie = [proyeccion["saldo_actual"]] + proyeccion["serie_mensual"]
+    alineada = [
+        serie[j] if 0 <= (j := desfase + k) < len(serie) else None
+        for k in range(len(serie) - desfase)
+    ]
+    # Si la proyección arranca en el pasado, ahí el afiliado era más joven: usar la
+    # edad de hoy descuadraba la edad de jubilación y la de agotamiento del patrimonio.
+    edad_inicio = perfil["edad"] + desfase / 12
 
     # Mes de la proyección en que se cumple la edad de pensión. La inversión parte en
     # inicio_mes/inicio_anio, que no tiene por qué coincidir con el cumpleaños.

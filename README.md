@@ -52,7 +52,7 @@ pantalla siempre corresponde a lo último que escribiste.
 - **Tramos de aporte**: defines rangos de meses a demanda (`1-60: $100`, `61-120: $200`, ...). Los rangos son inclusivos, se validan contra solapamientos y los meses sin tramo aportan $0.
 - **Horizonte Z (años)**: la proyección corre `Z*12` meses. Si un tramo se pasa del horizonte, se recorta; si dejas de aportar antes, el capital sigue capitalizando.
 - **Aportes extraordinarios**: montos puntuales amarrados a un mes de calendario y escritos en pesos de hoy — [ver](#aportes-extraordinarios).
-- **Sueldo y descuentos reales**: imponible y asignaciones no imponibles, cotizaciones con tope de 90 UF e impuesto único de segunda categoría — [ver](#sueldo-imponible-y-no-imponible).
+- **Sueldo y descuentos reales**: imponible y asignaciones no imponibles, cotizaciones con tope de 90 UF (135,2 UF la cesantía) e impuesto único de segunda categoría — [ver](#sueldo-imponible-y-no-imponible).
 - **Tu AFP**: proyección del saldo con las rentabilidades del sistema y los traspasos por edad, y la pensión que financia, que se descuenta de la meta desde que jubilas — [ver](#la-pensión-de-la-afp-dentro-de-la-meta).
 - **Fase de retiro**: desde que dejas de aportar, a qué edad el patrimonio llega a cero y cuánto podrías gastar para que dure justo hasta la edad que quieras — [ver](#fase-de-retiro-llevar-el-patrimonio-a-cero).
 - Resultado: tarjetas con la cifra nominal y su equivalente en pesos de hoy, gráfico que llega hasta la expectativa de vida —con el saldo AFP y la rama de consumo— y tablas por año, mes a mes y de poder adquisitivo.
@@ -108,7 +108,9 @@ devuelve el banner a lo que estaba en la base.
 
 El sueldo se ingresa en dos campos porque no todo cotiza:
 
-- **Sueldo imponible**: la parte que paga AFP, salud y cesantía, con tope de 90 UF.
+- **Sueldo imponible**: la parte que paga AFP, salud y cesantía. AFP y salud cotizan hasta
+  **90 UF**; el **seguro de cesantía tiene tope propio y mayor, 135,2 UF** (AFC, 2026), así que
+  se topa aparte.
 - **Asignaciones no imponibles** (colación, movilización): no cotizan ni descuentan, entran
   enteras al líquido.
 
@@ -140,19 +142,25 @@ es un campo del perfil junto a la UF.
 | 50 – 70 | 0,135 | 4,49 |
 | 70 – 90 | 0,23 | 11,14 |
 | 90 – 120 | 0,304 | 17,80 |
-| 120 – 150 | 0,35 | 23,32 |
-| 150 y más | 0,40 | 30,82 |
+| 120 – 310 | 0,35 | 23,32 |
+| 310 y más | 0,40 | 38,82 |
 
 El impuesto es `base × factor − rebaja × UTM`. Las rebajas empalman los tramos: a 30 UTM
 `0,04·30 − 0,54` y `0,08·30 − 1,74` dan ambos 0,66 UTM, y lo mismo en cada corte, así que la
 escala es continua y progresiva pese a aplicarse de forma directa.
+
+> Ojo con los dos últimos tramos: el del 35% llega hasta **310 UTM**, no hasta 150, y por eso
+> la rebaja del 40% es 38,82 (`0,35·310 − 23,32 = 0,40·310 − 38,82 = 85,18 UTM`). Cortarlo
+> antes deja la escala igual de continua, así que el error no se delata solo: hay que
+> contrastarlo contra la tabla del SII.
 
 La **base afecta** no es el bruto:
 
 - Parte de la renta **imponible**, no del bruto percibido: las asignaciones no imponibles
   razonables (colación, movilización) no son renta afecta.
 - Se le restan las **cotizaciones obligatorias efectivamente pagadas** — AFP, comisión, el 7%
-  de salud y la cesantía —, que se calculan sólo hasta el tope de 90 UF. El adicional de
+  de salud y la cesantía —, que se calculan sólo hasta sus topes (90 UF; 135,2 UF la
+  cesantía). El adicional de
   Isapre **no** rebaja la base: sale del líquido pero no es cotización obligatoria.
 
 En ese mismo ejemplo: base $973.560 (13,6 UTM, segundo tramo) →
@@ -417,6 +425,48 @@ hace decrecer el poder adquisitivo año a año.
 Si `plusvalía ≥ inflación`, la tasa sostenible es el yield completo. Si el yield no alcanza a
 cubrir la brecha, la app avisa que no hay punto sostenible con esos supuestos.
 
+### Impuesto sobre los repartos
+
+Campo **Impuesto sobre los repartos (%)** en el modelo de dividendos. Cada reparto se descuenta
+esa fracción **antes** de reinvertirse o cobrarse, porque el impuesto no se puede reinvertir.
+
+Viene en **0% por defecto** —la tasa efectiva depende del tramo de cada uno— pero está a la
+vista a propósito: dejarlo implícito equivalía a proyectar libre de impuestos sin decirlo, y
+eso no es neutro. Reinvertir el reparto bruto de CFINRENTAS a 30 años infla el resultado un
+**24%** frente a hacerlo con una tasa efectiva del 23%.
+
+Qué tributa y qué no, para elegir el número:
+
+- **Los repartos sí.** Las distribuciones de un fondo de inversión y los dividendos de
+  acciones son renta afecta al global complementario (con crédito por impuesto de primera
+  categoría en el caso de las acciones).
+- **La ganancia de capital, casi no.** El [art. 107 de la LIR](https://www.sii.cl/normativa_legislacion/circulares/2022/circu39.pdf)
+  grava con impuesto único de 10% el mayor valor en la enajenación de instrumentos con
+  presencia bursátil hasta el 31-dic-2026, y desde el 1-ene-2027 vuelve a ser ingreso no
+  renta. En un horizonte de décadas la venta queda esencialmente exenta, y por eso el modelo
+  no la grava.
+
+La cobertura de la meta, el retiro sostenible y el capital necesario se miden todos contra el
+reparto **neto**, que es de lo que se vive.
+
+### Esto es un escenario, no un pronóstico
+
+Bajo el resultado va una franja con el rango que producen **±1 punto de retorno y ±1 punto de
+inflación** — menos de una desviación estándar histórica (el IPC anual 2000-2025 tiene
+desviación estándar de 2,59 puntos). Son cuatro proyecciones extra sobre el mismo escenario:
+no es un Monte Carlo, es la banda mínima honesta.
+
+Hace falta porque la sensibilidad es grande y no se ve:
+
+| Plusvalía | Se agota a los |
+|---|---|
+| 3,71% | 69 años |
+| 5,71% | 71 años |
+| 7,71% | 76 años |
+
+Casi siete años de rango por mover la plusvalía ±2 puntos. Por lo mismo la **edad de
+agotamiento se publica en años enteros**: con un decimal se leía como una medición.
+
 ### Nominal vs. pesos de hoy
 
 Cada tarjeta muestra la cifra nominal arriba y su equivalente en pesos de hoy debajo: son el
@@ -434,8 +484,15 @@ Las tarjetas van en orden: lo que pones → lo que genera → lo que resulta →
 - **Deflactar es dividir por (1+i)^t**, no restar la inflación.
 - **Retorno real = (1+r)/(1+i) − 1**, no `r − i`. Con 9,5% nominal y 3,83% de inflación el
   retorno real es 5,46%, no 5,67%.
+- **El retorno total compone, no suma.** Con plusvalía `g` y yield `y` reinvertido, el retorno
+  anual del modelo es `(1+g)(1+y) − 1`, no `g + y`: el motor capitaliza la plusvalía cada mes
+  y reinvierte el dividendo, así que las dos fuentes se componen. Para el IPSA eso es 9,41% y
+  no 9,21% — 0,25 puntos por año, un 7% más de capital a 30 años.
 - **Aportes indexados** (checkbox): el monto escrito se interpreta como pesos de hoy y sube
-  una vez al año con la inflación, como un reajuste de sueldo. Sin el checkbox es un monto
+  con la inflación **al mismo ritmo con que se deflacta el resto**, así que vale lo mismo en
+  poder adquisitivo todos los meses. Con un escalón anual no lo hacía: se descolgaba hasta
+  3,4% dentro de cada año, y los aportes extraordinarios —que sí se convierten exacto— decían
+  «pesos de hoy» con otro significado. Sin el checkbox es un monto
   nominal fijo cuyo poder adquisitivo se erosiona. Mezclar una meta corregida por inflación
   con aportes nominales fijos compara pesos de años distintos.
 
@@ -458,7 +515,7 @@ Supuestos por defecto, **editables y no son una proyección oficial**:
 | Parámetro | Valor | De dónde sale |
 |---|---|---|
 | Dividend yield | 6,5% | Yield actual ≈ 6,5%; promedio 2022-2026 ≈ 7,3% |
-| Plusvalía de la cuota | 3,0% | Promedio 2022-2024 ≈ 2,3%, excluyendo el salto atípico de 2025 |
+| Plusvalía de la cuota | 2,3% | Promedio 2022-2024, excluyendo el salto atípico de 2025 |
 | Meses de pago | 3, 4, 6, 9, 12 | Cinco repartos al año: cuatro provisorios + el definitivo de abril |
 
 Dividendos históricos por cuota (CLP): 2022 $113 · 2023 $124 · 2024 $120 · 2025 $124 · 2026 YTD $119.

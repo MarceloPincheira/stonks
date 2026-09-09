@@ -7,6 +7,7 @@ const lumpsBody = $("#lumps-body");
 
 let currentId = null;      // id del escenario cargado (null = nuevo)
 let lastResult = null;     // último cálculo, para las tablas
+let lastSensitivity = null; // rangos del último cálculo (±1 pp de retorno e inflación)
 let detailView = "yearly";
 let chartUnits = "nominal";      // nominal | real (deflactado a pesos de hoy)
 let calcSeq = 0;           // descarta respuestas que llegan fuera de orden
@@ -102,6 +103,16 @@ function syncModelUI() {
   $("#fields-simple").hidden = on;
   $("#fields-dividends").hidden = !on;
   $("#reinvest-row").hidden = !on;
+  $("#dividend-tax-hint").hidden = !on;
+  // Los repartos son renta afecta: el art. 107 de la LIR exime el mayor valor de la
+  // venta, pero no las distribuciones. Reinvertir el bruto sobrestima el resultado.
+  const t = parseFloat($("#dividend_tax").value) || 0;
+  $("#dividend-tax-hint").innerHTML = t > 0
+    ? `Cada reparto se descuenta un <strong>${t}%</strong> antes de reinvertirse o cobrarse.`
+    : "<strong>En 0% la proyección reinvierte el reparto bruto</strong>, o sea libre de " +
+      "impuesto. Los repartos son renta afecta al global complementario (el art. 107 de " +
+      "la LIR exime la ganancia de capital de la venta, no las distribuciones): pon aquí " +
+      "tu tasa efectiva para no sobrestimar el resultado.";
   $("#reinvest-hint").textContent = $("#reinvest").checked
     ? "Los dividendos vuelven al fondo y componen."
     : "Los dividendos se acumulan en efectivo, sin rentar.";
@@ -251,6 +262,7 @@ function payload() {
     annual_return: parseFloat($("#annual_return").value),
     appreciation: parseFloat($("#appreciation").value),
     dividend_yield: parseFloat($("#dividend_yield").value),
+    dividend_tax: parseFloat($("#dividend_tax").value) || 0,
     reinvest: $("#reinvest").checked,
     inflation: parseFloat($("#inflation").value),
     income_goal: parseAmount($("#income_goal").value),
@@ -309,6 +321,7 @@ function isComplete(p) {
   if (!Number.isFinite(p.inflation) || !Number.isFinite(p.income_goal)) return false;
   if (p.model === "dividends") {
     if (!Number.isFinite(p.appreciation) || !Number.isFinite(p.dividend_yield)) return false;
+    if (!Number.isFinite(p.dividend_tax)) return false;
     if (!p.payout_months.length || p.payout_months.some((m) => !Number.isFinite(m))) return false;
   }
   if (!p.lump_sums.every((l) =>
@@ -332,6 +345,7 @@ async function calculate() {
     if (seq !== calcSeq) return;      // ya hay un cálculo más nuevo en curso
     showError("");
     lastResult = data.result;
+    lastSensitivity = data.sensitivity || null;
     renderResult(data.result);
     setStatus("actualizado", "ok");
   } catch (e) {
@@ -370,9 +384,14 @@ function renderResult(r) {
            "calcula sobre esta cifra." });
   }
   if (withDiv) {
-    kpis.push({ k: "Dividendos recibidos", ...par(r.total_dividends, r.total_dividends_real),
-      tip: "Todo lo que el fondo repartió a lo largo del horizonte completo. Si reinviertes, " +
-           "este dinero ya está dentro del valor total; no se suma aparte." });
+    kpis.push({ k: r.dividend_tax ? "Dividendos recibidos (netos)" : "Dividendos recibidos",
+      ...par(r.total_dividends_net, r.total_dividends_real),
+      tip: r.dividend_tax
+        ? `Lo que queda de los repartos después del ${r.dividend_tax}% de impuesto: el fondo ` +
+          `repartió ${fmtMoney(r.total_dividends)} brutos y ${fmtMoney(r.total_dividends_tax)} ` +
+          `se fueron en impuesto. Es lo neto lo que se reinvierte o se cobra.`
+        : "Todo lo que el fondo repartió a lo largo del horizonte completo. Si reinviertes, " +
+          "este dinero ya está dentro del valor total; no se suma aparte." });
     kpis.push({ k: `Dividendos del año ${years}`,
       ...par(r.last_year_dividends, r.last_year_dividends_real), cls: "good",
       tip: `Lo que el fondo repartiría durante ese último año solamente, no el acumulado. ` +
@@ -458,6 +477,7 @@ function renderResult(r) {
   renderPensionHint(r);
   renderGoalBanner(r);
   renderFiBanner(r);
+  renderSensitivity(r);
 
   $("#kpis").innerHTML = kpis.map((c) =>
     `<div class="kpi${c.hero ? " hero" : ""}"${c.tip ? ` data-tip="${c.tip.replace(/"/g, "&quot;")}"` : ""}>` +
@@ -480,9 +500,12 @@ function fondoEn(r, mes) {
   return fila ? fila.balance : 0;
 }
 
+/** Saldo AFP en un mes, o null si ese mes es anterior al inicio de la serie: cuando la
+ *  inversión arranca antes de hoy no hay saldo que mostrar, y un 0 se leería como
+ *  "no tienes nada" en vez de "no hay dato". */
 function afpEn(r, mes) {
   const fila = (r.afp_series || [])[mes - 1];
-  return fila ? fila.balance : 0;
+  return fila && fila.balance !== null && fila.balance !== undefined ? fila.balance : null;
 }
 
 /** Tabla de hitos: dónde está toda la plata en cada momento que importa. Va en pesos
@@ -526,11 +549,13 @@ function renderMilestones(r) {
 
   $("#milestones tbody").innerHTML = filas.map((h) => {
     const fondo = real(fondoEn(r, h.mes), h.mes);
-    const afp = real(afpEn(r, h.mes), h.mes);
+    const afpBruto = afpEn(r, h.mes);
+    const afp = afpBruto === null ? null : real(afpBruto, h.mes);
     return `<tr${h.mes === finTrabajo ? ' class="hito-clave"' : ""}>` +
       `<td>${h.hito}</td><td>${edadEn(h.mes)}</td>` +
-      `<td class="num">${fmtMoney(fondo)}</td><td class="num">${fmtMoney(afp)}</td>` +
-      `<td class="num"><strong>${fmtMoney(fondo + afp)}</strong></td>` +
+      `<td class="num">${fmtMoney(fondo)}</td>` +
+      `<td class="num">${afp === null ? "—" : fmtMoney(afp)}</td>` +
+      `<td class="num"><strong>${fmtMoney(fondo + (afp || 0))}</strong></td>` +
       `<td>${h.nota}</td></tr>`;
   }).join("");
 }
@@ -570,7 +595,7 @@ function renderRetirement(r) {
   const finTrabajo = r.work_until_month && r.work_until_month < ret.start_month
     ? r.work_until_month : ret.start_month;
   const fondoAlParar = aHoy(fondoEn(r, finTrabajo), finTrabajo);
-  const afpAlParar = aHoy(afpEn(r, finTrabajo), finTrabajo);
+  const afpAlParar = aHoy(afpEn(r, finTrabajo) || 0, finTrabajo);
 
   const trabajo = r.work_until_age
     ? `Trabajas hasta los <strong>${r.work_until_age}</strong>: ahí se cortan las ` +
@@ -706,6 +731,49 @@ function renderFiBanner(r) {
     : `<strong class="short">No alcanzas ese punto</strong> dentro del horizonte: ` +
       `harían falta <strong>${fmtMoney(r.capital_needed_sustainable)}</strong> invertidos ` +
       `para sostener tu meta en el año ${r.target_year}.`) + puenteRetiro(r);
+}
+
+/** La proyección es un escenario, no un pronóstico. Esta franja dice cuánto se mueven
+ *  las cifras que la app publica con ±1 punto de retorno y ±1 punto de inflación, que
+ *  es menos de una desviación estándar histórica. Sin esto, "se agota a los 71" se lee
+ *  como una medición. */
+function renderSensitivity(r) {
+  const host = $("#sensitivity-banner");
+  const sens = lastSensitivity;
+  if (!sens) { host.hidden = true; return; }
+  const rg = sens.rangos;
+  const partes = [];
+
+  const edad = rg.depletion_age;
+  if (edad && edad.central !== null) {
+    partes.push(edad.min === edad.max
+      ? `el patrimonio se agota a los <strong>${edad.central}</strong>`
+      : `el patrimonio se agota entre los <strong>${edad.min}</strong> y los ` +
+        `<strong>${edad.max}</strong> años` +
+        (edad.indefinido ? " (o no se agota)" : ""));
+  } else if (edad && edad.indefinido && edad.min !== null) {
+    partes.push(`el patrimonio puede no agotarse, o agotarse a los <strong>${edad.min}</strong>`);
+  }
+
+  const gasto = rg.max_spend_today;
+  if (gasto && gasto.central !== null && gasto.min !== gasto.max) {
+    partes.push(`el gasto máximo va de <strong>${fmtMoney(gasto.min)}</strong> a ` +
+                `<strong>${fmtMoney(gasto.max)}</strong> al mes`);
+  }
+
+  const saldo = rg.final_real_balance;
+  if (saldo && saldo.central !== null && saldo.min !== saldo.max) {
+    partes.push(`el patrimonio final en pesos de hoy va de <strong>${fmtMoney(saldo.min)}</strong> ` +
+                `a <strong>${fmtMoney(saldo.max)}</strong>`);
+  }
+
+  if (!partes.length) { host.hidden = true; return; }
+  host.hidden = false;
+  host.innerHTML =
+    `<strong>Esto es un escenario, no un pronóstico.</strong> Moviendo el retorno ` +
+    `±${sens.paso_pp} punto y la inflación ±${sens.paso_pp} punto —menos de una desviación ` +
+    `estándar histórica—, ` + partes.join("; ") + `. Las cifras de arriba son el caso ` +
+    `central de ese rango, no una medición.`;
 }
 
 /** El eje va más allá del horizonte cuando hay fase de retiro: hasta la edad objetivo. */
@@ -935,10 +1003,19 @@ function yearlyColumns() {
   }
   if (withDiv) {
     cols.push({ th: "Dividendos del año",
-      tip: "Lo que el fondo te repartió durante ese año (la suma de sus pagos).",
+      tip: lastResult.dividend_tax
+        ? "Lo que el fondo repartió durante ese año, en bruto. La columna neta de al lado es la "
+          + "que se reinvierte y con la que se mide la cobertura de tu meta."
+        : "Lo que el fondo te repartió durante ese año (la suma de sus pagos).",
       get: (r) => fmtMoney(r.dividends_year) });
-    cols.push({ th: "Dividendos acum.", tip: "Todo lo repartido por el fondo hasta ese año.",
+    cols.push({ th: "Dividendos acum.", tip: "Todo lo repartido por el fondo hasta ese año, en bruto.",
       get: (r) => fmtMoney(r.dividends_total) });
+    if (lastResult.dividend_tax) {
+      cols.push({ th: "Dividendos acum. netos",
+        tip: `Lo repartido menos el ${lastResult.dividend_tax}% de impuesto: lo que de verdad ` +
+             `se reinvirtió o se cobró.`,
+        get: (r) => fmtMoney(r.dividends_net_total) });
+    }
     cols.push({ th: "Plusvalía acum.",
       tip: "Cuánto subió el valor de las cuotas por sobre el capital puesto en el fondo.",
       get: (r) => fmtMoney(r.capital_gain) });
@@ -990,10 +1067,16 @@ function conPension() {
 }
 
 function purchasingColumns() {
+  // Sin dividendos no hay reparto que mostrar: en el modelo simple esas columnas
+  // marcaban $0 y 0% en todos los años. El retiro sostenible sí aplica —es el
+  // retorno real—, así que ése se queda.
+  const withDiv = lastResult.model === "dividends";
   return [
     { th: "Año", cls: "", get: (r) => r.year },
-    { th: "Dividendo mensual", tip: "Lo que recibirías al mes ese año, en pesos de ese año.",
-      get: (r) => fmtMoney(r.dividend_monthly) },
+    ...(withDiv ? [
+      { th: "Dividendo mensual", tip: "Lo que recibirías al mes ese año, neto de impuesto y en pesos de ese año.",
+        get: (r) => fmtMoney(r.dividend_monthly) },
+    ] : []),
     { th: "Meta del mes", tip: "Lo que costará ese año vivir como hoy con tu monto objetivo.",
       get: (r) => fmtMoney(r.goal_monthly) },
     ...(conPension() ? [
@@ -1005,15 +1088,21 @@ function purchasingColumns() {
         tip: "La meta menos la pensión: lo que tiene que poner la inversión.",
         get: (r) => fmtMoney(r.goal_from_portfolio) },
     ] : []),
-    { th: "Cobertura", tip: "Qué porcentaje de lo que falta cubren tus dividendos.", html: true,
-      get: (r) => {
-        if (r.coverage === null) return "—";
-        const pct = Math.min(100, r.coverage);
-        return `<span class="bar${r.coverage >= 100 ? "" : " short"}" style="width:${pct * 0.5}px"></span>` +
-          `${r.coverage.toFixed(0)}%`;
-      } },
+    ...(withDiv ? [
+      { th: "Cobertura", tip: "Qué porcentaje de lo que falta cubren tus dividendos.", html: true,
+        get: (r) => {
+          if (r.coverage === null) return "—";
+          const pct = Math.min(100, r.coverage);
+          return `<span class="bar${r.coverage >= 100 ? "" : " short"}" style="width:${pct * 0.5}px"></span>` +
+            `${r.coverage.toFixed(0)}%`;
+        } },
+    ] : []),
     { th: "Retiro sostenible",
-      tip: "Lo que podrías sacar al mes ese año sin que el capital pierda poder adquisitivo.",
+      tip: withDiv
+        ? "Lo que podrías sacar al mes ese año sin que el capital pierda poder adquisitivo: el "
+          + "dividendo neto menos lo que hay que reinvertir para seguirle el paso a la inflación."
+        : "Lo que podrías sacar al mes ese año sin que el capital pierda poder adquisitivo: "
+          + "vendiendo cada año el retorno real, el capital se mantiene constante en pesos de hoy.",
       get: (r) => fmtMoney(r.sustainable_monthly) },
     { th: "Cobertura sostenible",
       tip: "Qué porcentaje de la meta cubre ese retiro sostenible. Al llegar a 100% eres independiente.",
@@ -1024,9 +1113,11 @@ function purchasingColumns() {
         return `<span class="bar${r.sustainable_coverage >= 100 ? "" : " short"}" ` +
           `style="width:${pct * 0.5}px"></span>${r.sustainable_coverage.toFixed(0)}%`;
       } },
-    { th: "Dividendo en pesos de hoy",
-      tip: "El mismo dividendo mensual descontada la inflación: su poder adquisitivo real.",
-      get: (r) => fmtMoney(r.dividend_monthly_real) },
+    ...(withDiv ? [
+      { th: "Dividendo en pesos de hoy",
+        tip: "El mismo dividendo mensual descontada la inflación: su poder adquisitivo real.",
+        get: (r) => fmtMoney(r.dividend_monthly_real) },
+    ] : []),
     { th: "Valor total en pesos de hoy",
       tip: "Tu patrimonio deflactado, o sea lo que compraría a precios de hoy.",
       get: (r) => fmtMoney(r.real_balance) },
@@ -1165,6 +1256,7 @@ async function loadScenario(id) {
   $("#model-dividends").checked = s.model === "dividends";
   $("#appreciation").value = s.appreciation;
   $("#dividend_yield").value = s.dividend_yield;
+  $("#dividend_tax").value = s.dividend_tax || 0;
   $("#payout_months").value = s.payout_months;
   $("#reinvest").checked = s.reinvest;
   $("#inflation").value = s.inflation;
@@ -1407,6 +1499,14 @@ function syncProfileUI() {
   const modo = $("#p-trayectoria").value;
   const fondo = $("#p-fondo").value;
   $("#p-salida-a-wrap").hidden = !(modo === "fijo" && fondo === "A");
+  // El esquema de traspasos asigna el fondo por edad, así que la elección de fondo
+  // no se aplica. Antes el selector seguía activo y el resultado era el mismo eligiera
+  // lo que eligiera: ahora se deshabilita y se dice por qué.
+  const fondoSel = $("#p-fondo");
+  fondoSel.disabled = modo !== "fijo";
+  fondoSel.title = modo !== "fijo"
+    ? "Con un esquema de traspasos por edad el fondo lo asigna el esquema, no tú."
+    : "";
 
   const gradual = "El traspaso no es de golpe: se mueve <strong>20% del saldo al cumplir la " +
     "edad y 20% más cada año</strong>, completándose a los cuatro años. Las cotizaciones " +
@@ -1451,7 +1551,13 @@ function syncProfileUI() {
       gradual,
   };
   const [gAño, gMes] = (afpParams.generacionales_desde || "2027-04").split("-");
-  $("#p-fondo-nota").innerHTML = modos[modo] + sobreAyB +
+  const fondoIgnorado = modo !== "fijo"
+    ? `<br><strong>Tu fondo actual no entra en esta proyección</strong>: el esquema de ` +
+      `traspasos asigna el fondo por edad, así que la proyección parte del que le ` +
+      `corresponde al esquema y no del que tengas hoy. Elige <em>“Me quedo en mi fondo”</em> ` +
+      `si quieres proyectar con el tuyo. `
+    : "";
+  $("#p-fondo-nota").innerHTML = modos[modo] + fondoIgnorado + sobreAyB +
     `<br>Ojo: en <strong>${MESES[Number(gMes) - 1]} de ${gAño}</strong> los multifondos ` +
     `se reemplazan por fondos ` +
     `generacionales asignados por año de nacimiento, sin opción de elegir en el ahorro ` +
