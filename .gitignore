@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+
+# Bases locales: guardan el perfil con sueldo, saldo AFP y fecha de nacimiento.
+# stonks.db se recrea sola al arrancar (db.init() siembra los escenarios de ejemplo);
+# stonks.personal.db es la copia con los datos de verdad. Ninguna se versiona.
+*.db

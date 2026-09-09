@@ -1,0 +1,329 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stonks · Proyección de inversión</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📈</text></svg>">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header>
+  <div>
+    <h1>📈 Stonks</h1>
+    <p>Proyecta cuánto acumulas aportando montos distintos en cada tramo de meses.</p>
+  </div>
+  <button type="button" id="open-profile" class="secondary">👤 Mi perfil</button>
+</header>
+
+<main>
+  <section class="panel" id="form-panel">
+    <h2>Parámetros</h2>
+
+    <div class="grid">
+      <label>Nombre del escenario
+        <input type="text" id="name" placeholder="Ej: S&amp;P 500 conservador">
+      </label>
+      <label>Horizonte Z (años)
+        <input type="number" id="years" value="30" min="1" max="100" step="1">
+      </label>
+      <label>Moneda
+        <select id="currency">
+          <option value="CLP">CLP $</option>
+          <option value="USD">USD $</option>
+          <option value="EUR">EUR €</option>
+          <option value="UF">UF</option>
+        </select>
+      </label>
+    </div>
+
+    <div class="switch">
+      <label class="check"><input type="checkbox" id="model-dividends">
+        <span>Modelar dividendos por separado</span></label>
+      <span class="hint inline">Para fondos de reparto como CFINRENTAS.</span>
+    </div>
+
+    <div class="grid" id="fields-simple">
+      <label>Rentabilidad anual promedio (%)
+        <input type="number" id="annual_return" value="8" step="0.1">
+      </label>
+    </div>
+
+    <div class="grid" id="fields-dividends" hidden>
+      <label>Plusvalía anual de la cuota (%)
+        <input type="number" id="appreciation" value="3" step="0.1">
+      </label>
+      <label>Dividend yield anual (%)
+        <input type="number" id="dividend_yield" value="6.5" step="0.1">
+      </label>
+      <label>Meses de pago
+        <input type="text" id="payout_months" value="3,4,6,9,12" placeholder="3,6,9,12">
+      </label>
+    </div>
+
+    <div class="switch" id="reinvest-row" hidden>
+      <label class="check"><input type="checkbox" id="reinvest" checked>
+        <span>Reinvertir los dividendos</span></label>
+      <span class="hint inline" id="reinvest-hint"></span>
+    </div>
+
+    <h2>Poder adquisitivo</h2>
+    <p class="hint">Cuánto necesitarás recibir en el futuro para vivir como vives hoy con cierto monto.</p>
+    <div class="grid">
+      <label>Base de la inflación
+        <select id="inflation-preset"></select>
+      </label>
+      <label>Inflación anual esperada (%)
+        <input type="number" id="inflation" value="3.83" step="0.01">
+      </label>
+      <label><span class="lbl">Quiero recibir al mes <span class="tag">en pesos de hoy</span></span>
+        <input type="text" id="income_goal" class="amount" inputmode="decimal" value="2.000.000">
+      </label>
+    </div>
+    <p class="hint" id="inflation-detail"></p>
+
+    <div class="switch">
+      <label class="check"><input type="checkbox" id="index_contributions">
+        <span>Mis aportes son en pesos de hoy</span></label>
+      <span class="hint inline" id="index-hint"></span>
+    </div>
+
+    <div class="switch">
+      <label class="check"><input type="checkbox" id="include_pension" checked>
+        <span>Contar la pensión de la AFP</span></label>
+      <span class="hint inline" id="pension-hint"></span>
+    </div>
+
+    <h2>Fase de retiro</h2>
+    <p class="hint">Qué pasa desde que dejas de aportar: la pensión de la AFP entra a la edad
+      de jubilación y el patrimonio se consume para completar la meta.</p>
+    <div class="grid">
+      <label>Trabajo hasta los (años)
+        <input type="number" id="work_until_age" step="0.5" min="18" max="80">
+      </label>
+      <label>Llevar el patrimonio a cero a los (años)
+        <input type="number" id="retire_to_age" step="0.1" min="30" max="120">
+      </label>
+      <label>Gasto mensual en el retiro
+        <select id="spend_mode">
+          <option value="goal">Mi meta de ingreso</option>
+          <option value="target_age">Lo máximo que dure hasta esa edad</option>
+        </select>
+      </label>
+    </div>
+    <p class="hint" id="retirement-hint"></p>
+    <div class="table-x" id="milestones-wrap" hidden>
+      <table id="milestones">
+        <thead>
+          <tr><th>Hito</th><th>Edad</th><th class="num">Fondo</th><th class="num">AFP</th>
+            <th class="num">Total</th><th>Qué pasa con tu plata</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <h2>Tramos de aporte mensual</h2>
+    <p class="hint">Los meses se cuentan desde el <strong>mes 1</strong> (primer aporte). Los rangos son inclusivos y no pueden solaparse.</p>
+    <div class="table-x">
+      <table id="ranges">
+        <thead>
+          <tr><th>Desde (mes)</th><th>Hasta (mes)</th><th id="th-amount">Aporte mensual</th><th>Meses</th><th></th></tr>
+        </thead>
+        <tbody id="ranges-body"></tbody>
+      </table>
+    </div>
+
+    <div class="row-actions">
+      <button type="button" id="add-range" class="secondary">+ Agregar tramo</button>
+      <span id="ranges-summary" class="hint"></span>
+      <span id="ranges-trim" class="hint short"></span>
+    </div>
+
+    <h2>Aportes extraordinarios</h2>
+    <p class="hint">Montos puntuales amarrados a un mes de calendario: vender una propiedad, un
+      bono, una herencia. Se escriben en <strong>pesos de hoy</strong> y la app los lleva al
+      valor nominal del mes en que caen usando la inflación de arriba.</p>
+    <div class="table-x">
+      <table id="lumps">
+        <thead>
+          <tr><th>Mes</th><th>Año</th><th>Monto (pesos de hoy)</th><th>Valor en ese mes</th><th></th></tr>
+        </thead>
+        <tbody id="lumps-body"></tbody>
+      </table>
+    </div>
+
+    <div class="row-actions">
+      <button type="button" id="add-lump" class="secondary">+ Agregar aporte extraordinario</button>
+      <span id="lumps-summary" class="hint"></span>
+    </div>
+
+    <div class="actions">
+      <button type="button" id="save">Guardar escenario</button>
+      <button type="button" id="reset" class="ghost">Nuevo</button>
+    </div>
+    <p id="error" class="error" hidden></p>
+  </section>
+
+  <section class="panel" id="saved-panel">
+    <h2>Escenarios guardados</h2>
+    <ul id="saved-list" class="saved-list"></ul>
+  </section>
+
+  <section class="panel" id="results-panel" hidden>
+    <h2>Resultado <span id="status" class="status"></span></h2>
+    <div class="goal-banner" id="goal-banner" hidden></div>
+    <div class="goal-banner fi" id="fi-banner" hidden></div>
+    <div class="goal-banner afp" id="afp-banner" hidden></div>
+    <div class="kpis" id="kpis"></div>
+    <div class="tabs" id="chart-units">
+      <button type="button" class="tab active" data-units="nominal">Pesos nominales</button>
+      <button type="button" class="tab" data-units="real">Pesos de hoy</button>
+    </div>
+    <div class="chart-wrap">
+      <canvas id="chart" aria-label="Evolución del capital"></canvas>
+    </div>
+    <p class="hint" id="chart-note"></p>
+
+    <div class="tabs" id="detail-tabs">
+      <button type="button" class="tab active" data-view="yearly">Por año</button>
+      <button type="button" class="tab" data-view="monthly">Mes a mes</button>
+      <button type="button" class="tab" data-view="purchasing">Poder adquisitivo</button>
+    </div>
+    <div id="detail-grid" class="grid-wrap"></div>
+    <p class="hint grid-tip">Haz clic en una celda para resaltar su fila y su columna. Los encabezados ordenan.</p>
+  </section>
+</main>
+
+<div class="modal-backdrop" id="profile-modal" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="profile-title">
+    <header class="modal-head">
+      <h2 id="profile-title">Mi perfil</h2>
+      <button type="button" class="modal-close" id="close-profile" aria-label="Cerrar">×</button>
+    </header>
+
+    <div class="modal-body">
+      <section>
+        <h3>Datos personales</h3>
+        <p class="hint" id="p-edad-calc"></p>
+        <div class="grid">
+          <label>Fecha de nacimiento
+            <input type="date" id="p-nacimiento">
+          </label>
+          <label>Tramo legal
+            <select id="p-sexo">
+              <option value="hombre">Hombre · jubila a los 65</option>
+              <option value="mujer">Mujer · jubila a los 60</option>
+            </select>
+          </label>
+          <label>Empiezo a invertir en
+            <div class="pair">
+              <select id="p-inicio-mes"></select>
+              <input type="number" id="p-inicio-anio" step="1" min="1900" max="2200">
+            </div>
+          </label>
+        </div>
+      </section>
+
+      <section>
+        <h3>Sueldo y descuentos</h3>
+        <p class="hint">Se asume que tu sueldo mantiene su poder adquisitivo hasta jubilar,
+          o sea que se reajusta con la inflación. Sólo la parte <strong>imponible</strong>
+          cotiza y paga descuentos; las asignaciones no imponibles (colación, movilización)
+          entran enteras al líquido.</p>
+        <div class="grid">
+          <label>Sueldo imponible mensual
+            <input type="text" id="p-sueldo" class="amount" inputmode="decimal">
+          </label>
+          <label>Asignaciones no imponibles
+            <input type="text" id="p-no-imponible" class="amount" inputmode="decimal">
+          </label>
+          <label>Salud
+            <select id="p-salud">
+              <option value="fonasa">FONASA (7%)</option>
+              <option value="isapre">Isapre (7% + adicional)</option>
+            </select>
+          </label>
+          <label id="p-salud-extra-wrap" hidden>Adicional Isapre al mes
+            <input type="text" id="p-salud-extra" class="amount" inputmode="decimal">
+          </label>
+          <label>Valor de la UF
+            <input type="text" id="p-uf" class="amount" inputmode="decimal">
+          </label>
+          <label>Valor de la UTM
+            <input type="text" id="p-utm" class="amount" inputmode="decimal">
+          </label>
+        </div>
+        <div class="switch">
+          <label class="check"><input type="checkbox" id="p-indefinido">
+            <span>Contrato indefinido</span></label>
+          <span class="hint inline">Descuenta 0,6% de seguro de cesantía.</span>
+        </div>
+        <p class="hint" id="p-liquido"></p>
+      </section>
+
+      <section>
+        <h3>AFP</h3>
+        <div class="grid">
+          <label>AFP
+            <select id="p-afp"></select>
+          </label>
+          <label>Comisión (%)
+            <input type="number" id="p-comision" step="0.01" min="0">
+          </label>
+          <label>Fondo actual
+            <select id="p-fondo"></select>
+          </label>
+          <label>Saldo acumulado hoy
+            <input type="text" id="p-saldo" class="amount" inputmode="decimal">
+          </label>
+          <label>Aporte del empleador a tu cuenta (%)
+            <input type="number" id="p-empleador" step="0.1" min="0">
+          </label>
+          <label>Trayectoria de fondos
+            <select id="p-trayectoria">
+              <option value="fijo">Me quedo en mi fondo hasta que la ley me obligue</option>
+              <option value="basico">Traspaso por edad · contrato básico</option>
+              <option value="ampliado">Traspaso por edad · contrato ampliado</option>
+            </select>
+          </label>
+          <label id="p-salida-a-wrap" hidden>Al salir del fondo A me cambio a
+            <select id="p-salida-a">
+              <option value="B">Fondo B</option>
+              <option value="C">Fondo C</option>
+              <option value="D">Fondo D</option>
+              <option value="E">Fondo E</option>
+            </select>
+          </label>
+        </div>
+        <p class="hint" id="p-fondo-nota"></p>
+      </section>
+
+      <section id="afp-result" hidden>
+        <h3>Proyección de tu AFP</h3>
+        <div class="kpis" id="afp-kpis"></div>
+        <div class="table-x">
+          <table id="afp-trayectoria">
+            <thead><tr><th>Edad</th><th>Fondo</th><th class="num">Rentabilidad real</th><th class="num">Saldo (pesos de hoy)</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
+      <p id="profile-error" class="error" hidden></p>
+    </div>
+
+    <footer class="modal-foot">
+      <span class="hint" id="profile-status"></span>
+      <div>
+        <button type="button" class="ghost" id="cancel-profile">Cerrar</button>
+        <button type="button" id="save-profile">Guardar perfil</button>
+      </div>
+    </footer>
+  </div>
+</div>
+
+<script src="vendor/chart.umd.min.js"></script>
+<script src="vendor/gridjs.umd.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
