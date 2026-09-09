@@ -17,6 +17,13 @@ Lo que no sobrevivió a las tres lentes está al final, con el motivo.
 > estaban bien —ganancia contable, ganancia real y pesos del traspaso entre fondos— siguen
 > cuadrando. `make init` levanta el proyecto completo desde una instalación limpia.
 >
+> **Segunda ronda.** Al documentar el modelo (`MODELO.md`) aparecieron dos cosas más, ya
+> corregidas: el «retiro sostenible» del modelo de dividendos topaba en el yield y pedía casi el
+> doble de capital del necesario —el mismo instrumento modelado como `simple` daba otra respuesta—,
+> y el reparto atado a la fecha de pago creaba una discontinuidad de ~7× en el costo de atrasar un
+> aporte. Ahora el retiro sostenible es el retorno real en ambos modelos y el reparto se devenga
+> mes a mes. Cubierto por `test_stonks.py` (71 pruebas, `make test`).
+>
 > Al corregir el hallazgo 3 apareció un **desfase adicional de un mes** que la auditoría no
 > había aislado: `serie_mensual` de la AFP empieza en el mes *siguiente* a hoy, pero se
 > indexaba como si empezara hoy, así que la curva estaba corrida un mes **incluso cuando la

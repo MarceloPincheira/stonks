@@ -415,7 +415,7 @@ function renderResult(r) {
     sub: r.gain_pct !== null ? `+${r.gain_pct.toFixed(0)}% sobre lo aportado` : "",
     tip: "Cuántas veces se multiplicó tu dinero: valor total dividido por lo que aportaste. " +
          "Está en términos nominales, así que parte del multiplicador es sólo inflación." });
-  if (withDiv && r.income_goal) {
+  if (r.income_goal) {
     kpis.push({
       k: "Vives de la rentabilidad desde",
       v: r.fi_year ? `año ${r.fi_year}` : "—",
@@ -424,8 +424,8 @@ function renderResult(r) {
         : `sin tocar el capital no se alcanza en ${Math.round(r.total_months / 12)} años`,
       cls: r.fi_year ? "good" : "",
       tip: "Primer año en que podrías dejar de aportar y vivir de la rentabilidad para siempre. " +
-           "Usa el retiro sostenible (el yield menos lo que hay que reinvertir para que la " +
-           "inflación no carcoma el capital), no el dividendo completo.",
+           "Usa el retiro sostenible: el retorno REAL del instrumento, que es lo que se puede " +
+           "consumir dejando el capital constante en pesos de hoy.",
     });
   }
   // La fase de retiro no depende del modelo: sirve igual con una tasa única que con
@@ -700,7 +700,7 @@ let chart = null;
 /** ¿Cuándo puedes vivir de la rentabilidad sin que el capital pierda poder adquisitivo? */
 function renderFiBanner(r) {
   const host = $("#fi-banner");
-  if (r.model !== "dividends" || !r.income_goal) {
+  if (!r.income_goal) {
     host.hidden = true;
     return;
   }
@@ -709,20 +709,22 @@ function renderFiBanner(r) {
   if (!r.sustainable_rate || r.sustainable_rate <= 0) {
     host.innerHTML =
       `<strong class="short">Nunca es sostenible con estos supuestos.</strong> ` +
-      `Con una plusvalía de ${$("#appreciation").value}% bajo una inflación de ${r.inflation}%, ` +
-      `el yield completo no alcanza ni para reponer lo que el capital pierde cada año. ` +
-      `Habría que subir la plusvalía o el yield.`;
+      `El retorno real es ${r.sustainable_rate}% anual: con una inflación de ${r.inflation}% ` +
+      `el capital no le gana al alza de precios, así que cualquier retiro lo descapitaliza.`;
     return;
   }
 
-  const brecha = r.reinvest_share_needed;
+  // El retiro sostenible es el retorno REAL: consumirlo entero deja el capital constante
+  // en pesos de hoy. La cifra de "sólo repartos" va como secundaria porque es más
+  // exigente -- exige no vender nunca -- y por sí sola pedía casi el doble de capital.
+  const soloRepartos = (r.payout_only_rate !== null && r.payout_only_rate !== undefined)
+    ? ` De ese total, <strong>${r.payout_only_rate}%</strong> lo ponen los repartos sin vender ` +
+      `nada; el resto sale de vender cada año la plusvalía que exceda la inflación.`
+    : "";
   const base =
-    `<strong>Retiro sostenible: ${r.sustainable_rate}% anual</strong> del capital ` +
-    (brecha > 0
-      ? `(el yield es ${$("#dividend_yield").value}%, pero hay que reinvertir siempre el ` +
-        `<strong>${brecha}%</strong> de los dividendos para que el capital no pierda ` +
-        `poder adquisitivo frente a la inflación). `
-      : `(la plusvalía ya cubre la inflación, así que puedes consumir todo el dividendo). `);
+    `<strong>Retiro sostenible: ${r.sustainable_rate}% anual</strong> del capital — el ` +
+    `retorno real, o sea lo que puedes consumir dejando el capital constante en pesos de hoy.` +
+    soloRepartos + ` `;
 
   host.innerHTML = base + (r.fi_year
     ? `Podrías dejar de aportar y vivir de la rentabilidad <strong class="ok">desde el año ${r.fi_year}</strong>, ` +
@@ -1098,11 +1100,9 @@ function purchasingColumns() {
         } },
     ] : []),
     { th: "Retiro sostenible",
-      tip: withDiv
-        ? "Lo que podrías sacar al mes ese año sin que el capital pierda poder adquisitivo: el "
-          + "dividendo neto menos lo que hay que reinvertir para seguirle el paso a la inflación."
-        : "Lo que podrías sacar al mes ese año sin que el capital pierda poder adquisitivo: "
-          + "vendiendo cada año el retorno real, el capital se mantiene constante en pesos de hoy.",
+      tip: "Lo que podrías sacar al mes ese año sin que el capital pierda poder adquisitivo: "
+         + "el retorno real del instrumento. Consumirlo entero deja el capital constante en "
+         + "pesos de hoy; parte llega como reparto y el resto exige vender.",
       get: (r) => fmtMoney(r.sustainable_monthly) },
     { th: "Cobertura sostenible",
       tip: "Qué porcentaje de la meta cubre ese retiro sostenible. Al llegar a 100% eres independiente.",

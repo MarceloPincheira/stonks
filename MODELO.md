@@ -188,17 +188,26 @@ En el **modelo simple** eso es todo: `g` es el retorno total y no hay repartos.
 
 ### 5.2 Repartos (modelo dividendos)
 
-Si `((m−1) mod 12) + 1 ∈ P`:
+El reparto se **devenga todos los meses** sobre el valor del fondo y se **paga acumulado** en
+los meses de `P`:
 
 ```
-p        = y / n                      (fracción repartida en cada pago)
-d_m      = V_m · p                    (bruto, sobre el valor YA capitalizado)
-t_m      = d_m · τ
-d_m^net  = d_m − t_m
+devengo  ← devengo + V_m · (y/12)             todos los meses
 
-si reinvierte:   V_m ← V_m + d_m^net
-si no:           C_m ← C_{m−1} + d_m^net
+si ((m−1) mod 12) + 1 ∈ P:
+    d_m      = devengo;   devengo ← 0        (bruto)
+    t_m      = d_m · τ
+    d_m^net  = d_m − t_m
+    si reinvierte:   V_m ← V_m + d_m^net
+    si no:           C_m ← C_{m−1} + d_m^net
 ```
+
+> **Por qué devengo y no fracción del valor en la fecha.** Repartir `y/n · V_m` en cada fecha de
+> pago hace que el dinero que entra ese mes cobre un trimestre completo de dividendo por un mes de
+> tenencia; y si se lo excluye, llegar un mes tarde cuesta el reparto entero. Cualquier regla
+> atada a la fecha crea una discontinuidad, porque `y/n` representa una acumulación de `12/n`
+> meses. El devengo la elimina: lo repartido en el año es siempre ≈ valor medio × `y`,
+> independiente del calendario de pagos.
 
 > **Supuesto central.** El reparto **no se descuenta** del valor del fondo. La justificación es
 > que la plusvalía histórica de un fondo de reparto (o el retorno de precio de un índice) ya viene
@@ -226,11 +235,12 @@ R_declarado = (1 + g)·(1 + y) − 1
 | | valor |
 |---|---|
 | `R_declarado` | 9,409850% |
-| `R_efectivo` (teórico y medido, coinciden a 1e−9) | 9,458694% |
-| residuo | **+0,048844 pp/año** |
+| `R_efectivo` medido con `n = 4` | 9,434140% |
+| `R_efectivo` medido con `n = 12` | 9,469783% |
+| residuo con `n = 4` | **+0,024290 pp/año** |
 
-El residuo es la capitalización intra-anual de los repartos, de orden `y²(n−1)/(2n)` ≈ 0,0459 pp.
-Crece con `n` y con `y`. A 30 años acumula **+1,35%** de patrimonio final.
+El residuo es la capitalización intra-anual de lo repartido: reinvertir cuatro veces al año compone
+más que hacerlo una. Crece con `n` y con `y`. A 30 años acumula **+0,67%** de patrimonio final.
 
 > **Sesgo conocido, no corregido.** La etiqueta subestima lo que el motor entrega. Una corrección
 > exacta haría que `annual_return` dependiera de `payout_months` y de `reinvest`, lo que es
@@ -238,35 +248,24 @@ Crece con `n` y con `y`. A 30 años acumula **+1,35%** de patrimonio final.
 > Queda declarado para que el revisor decida. (Una versión anterior declaraba `g + y = 9,21%`, con
 > un residuo cinco veces mayor.)
 
-### 5.4 Artefacto de «comprar el dividendo»
+### 5.4 Neutralidad frente al calendario de pagos
 
-`d_m` se calcula sobre `V_m`, que ya incluye **el aporte de ese mes**. Un aporte que cae en un mes
-de pago cobra un reparto completo de inmediato:
+La propiedad que el devengo garantiza, y que sirve de prueba: **invertir más tarde nunca puede
+rendir más, y el costo de atrasarse un mes no depende de si ese mes es de pago.**
 
-```
-aporte de $1.000.000 en el mes de pago, y = 4%, n = 1  →  reparto del año: $40.000
-el mismo aporte un mes después                          →  reparto del año: $0
-```
+Patrimonio final a 20 años según el mes en que cae un aporte extraordinario de \$50.000.000
+(`g = 5,71%`, `y = 3,5%`, `P = {4,5,9,12}`):
 
-En el mundo real una cuota comprada el día antes del reparto cobra el dividendo pero su precio cae
-en el monto repartido; aquí no cae, porque el reparto no se descuenta del capital (§5.2).
+| ubicación del aporte | costo de atrasarlo un mes |
+|---|---|
+| meses sin pago | \$1,27 M – \$1,32 M |
+| meses de pago (4, 5, 9, 12) | \$1,32 M – \$1,32 M |
+| **dispersión máx/mín** | **1,04×** |
 
-Magnitud medida (aporte mensual indexado, `g = 5,71%`, `y = 3,5%`, `n = 4`, 344 meses), comparando
-contra calcular el reparto sobre el valor **sin** el aporte del mes:
-
-| | patrimonio final | repartos |
-|---|---|---|
-| como está (la base incluye el aporte) | \$355.576.188 | \$100.871.140 |
-| base sin el aporte del mes | \$354.552.194 | \$100.311.742 |
-| **sobrestimación** | **+0,289%** | +0,56% |
-
-Con aportes mensuales parejos el efecto es acotado —aunque no despreciable: con `n = 4`, `n/12` =
-**33%** de los aportes cae en mes de pago, no `1/n`—. Es **materialmente mayor con un aporte
-extraordinario grande**: un lump de \$50.000.000 ubicado en el mes 4 (de pago) frente al mes 6
-(sin pago) cambia el resultado final en **\$13.382.895 (+1,33%)**, por nada más que la ubicación.
-
-> **Mitigación sugerida al revisor:** calcular `d_m` sobre `V_{m−1}·(1+r)`, excluyendo el aporte
-> del mes. No está implementado.
+Con la regla anterior esa dispersión era de **~7×**, y el signo dependía de la variante: repartir
+sobre el valor con el aporte dentro **regalaba** \$13,4 M (+1,33%) por poner el aporte en un mes de
+pago; excluir el aporte lo **penalizaba** en 0,76% por llegar un mes tarde. El devengo deja el
+resultado esencialmente insensible a la fecha, que es lo correcto.
 
 ### 5.5 Identidades contables
 
@@ -321,7 +320,8 @@ Para `m = inicio+1 .. fin`:
 ```
 necesita = spend_today · D(m)
 pension  = pension_today · D(m)   si pension_start ≠ null y m ≥ pension_start, si no 0
-dividendo = V · p·(1−τ)            si ((m−1) mod 12)+1 ∈ P, si no 0        ← V PRE-crecimiento
+devengo  += V·(1+r) · (y/12)·(1−τ)                                   ← se devenga todos los meses
+dividendo = devengo (y se pone en 0)  si ((m−1) mod 12)+1 ∈ P, si no 0
 ingreso  = pension + dividendo
 del_fondo = max(0, necesita − ingreso)
 sobra     = max(0, ingreso − necesita)
@@ -332,10 +332,9 @@ V ← max(0, V − vendido + sobra) · (1 + r)
 Orden de prelación del gasto: **primero la pensión, después el reparto, y sólo lo que falte se
 vende del fondo.** El excedente vuelve al fondo y capitaliza.
 
-> **Inconsistencia declarada.** En acumulación el reparto se calcula sobre el valor **posterior**
-> al crecimiento del mes; aquí sobre el valor **anterior**. La diferencia es `r` por reparto:
-> 0,4637% con `g = 5,71%`. Se midió y se consideró inmaterial, pero es una asimetría real entre
-> las dos fases.
+El devengo pendiente al momento de dejar de aportar **se traspasa** a la fase de retiro
+(`accrual0`), de modo que no se pierde una fracción de reparto en la transición. Ambas fases usan
+ahora la misma regla de devengo sobre el valor capitalizado del mes.
 
 ### 6.3 Detección de agotamiento
 
@@ -636,46 +635,46 @@ Hereda el residuo de §5.3, porque se construye sobre `R_declarado` y no sobre `
 
 ### 9.2 Retiro sostenible
 
-**Modelo dividendos.** Para que el capital no pierda poder adquisitivo debe crecer al menos como
-la inflación. La plusvalía aporta `g`; la brecha se cubre reinvirtiendo parte del reparto:
+El **retiro sostenible es el retorno real del instrumento**, en ambos modelos. Consumirlo entero
+deja el capital constante en pesos de hoy:
 
 ```
-brecha = max(0, i − g)
-yield_neto = y·(1 − τ)
-tasa_sostenible = yield_neto − brecha
+retorno_neto    = (1+g)·(1 + y·(1−τ)) − 1          (dividendos)
+retorno_neto    = g                                 (simple)
+tasa_sostenible = (1 + retorno_neto)/(1 + i) − 1
 ```
 
-Verificación por simulación directa a 30 años (retirar la tasa sostenible cada año y medir el
-capital real final, partiendo de 100):
-
-| `g` | `y` | `i` | sostenible | capital real a 30 años |
-|---|---|---|---|---|
-| 3,0% | 6,5% | 3,83% | 5,67% | 100,80 |
-| 1,0% | 6,5% | 3,83% | 3,67% | 101,71 |
-| 5,71% | 3,5% | 3,83% | 3,50% | **171,32** |
-
-Cuando `g < i` la regla es **aproximadamente exacta** (el capital real se mantiene). Cuando
-`g > i` la regla topa en el yield completo y el capital real **crece 71% en 30 años**: la regla es
-entonces **estrictamente conservadora**, no neutral.
-
-Eso es coherente con su definición implícita —«lo máximo consumible *de los repartos*, sin vender
-nunca capital»— pero significa que en ese régimen el retiro perpetuo máximo real es mayor:
-aproximadamente `y + (g − i)`, esto es 5,38% frente al 3,50% que informa el modelo.
-
-**Modelo simple.** No hay repartos, de modo que la tasa sostenible es el **retorno real** completo:
+Como cifra **secundaria** se informa cuánto de eso llega sólo por reparto, sin vender una cuota:
 
 ```
-tasa_sostenible = (1 + g)/(1 + i) − 1
+payout_only = y·(1−τ) − max(0, i − g)
 ```
 
-> **Asimetría de definición — punto para el revisor.** Las dos ramas responden preguntas
-> **distintas** bajo la misma etiqueta:
-> - dividendos: «cuánto puedo consumir **sin vender capital**» (capital real puede crecer);
-> - simple: «cuánto puedo consumir **vendiendo el retorno real**» (capital real constante).
->
-> Ambas son defendibles por separado —en el modelo simple no hay otra fuente que vender— pero la
-> columna «Retiro sostenible» significa dos cosas según el modelo. Una unificación posible es usar
-> `(1+g)(1+y(1−τ))/(1+i) − 1` en ambos casos y declarar explícitamente que puede requerir vender.
+**Por qué el retorno real y no sólo el reparto.** La regla anterior (`payout_only` como cifra
+principal) topaba en el yield y se negaba a contar como consumible la plusvalía por sobre la
+inflación. Con `g > i` eso deja el capital creciendo mientras la app declara la meta inalcanzable.
+Medido sobre el mismo instrumento (`g = 5,71%`, `y = 3,5%`, `i = 3,83%`, horizonte 40 años):
+
+| | sólo reparto | retorno real |
+|---|---|---|
+| tasa sostenible | 3,50% | **5,374%** |
+| año de independencia | nunca | **34** |
+| capital necesario | \$3.084 M | **\$1.603 M** |
+
+Casi el doble de capital exigido por una restricción —«no vender jamás una cuota»— que nadie se
+impone en la práctica. Con la regla unificada, el mismo instrumento modelado como `simple` o como
+`dividends` entrega **la misma** tasa sostenible y el **mismo** año de independencia, que es la
+prueba de consistencia que antes fallaba.
+
+Verificación por simulación directa a 30 años (devengar `y/12` al mes, pagar trimestral, retirar
+la tasa sostenible y medir el capital real final, partiendo de 100): con `g = 3%`, `y = 6,5%`,
+`i = 3,83%` la tasa sostenible es **5,65%** y el capital real termina en **101,0** — se mantiene,
+como debe ser. El residuo de 1,0 en 30 años (0,03%/año) es la capitalización intra-trimestral del
+devengo, no una deriva de la regla.
+
+> **Lo que sí exige.** Consumir el retorno real completo requiere **vender** cada año la parte que
+> no llegó como reparto. Quien no quiera vender debe mirar la cifra secundaria `payout_only`, que
+> la interfaz muestra al lado. Es una restricción legítima, pero es del usuario, no del modelo.
 
 ### 9.3 Independencia financiera y capital necesario
 
@@ -753,17 +752,15 @@ Ordenadas por impacto potencial. Es la lista que un revisor debería atacar prim
 | 3 | Aporte del empleador constante, sin la gradualidad de la Ley 21.735 | subestima saldo AFP | no cuantificada |
 | 4 | CNU por renta cierta, sin tablas de mortalidad ni grupo familiar | **signo neto desconocido** (§7.5) | no cuantificada |
 | 5 | Rentabilidad histórica de fondos como estimador puntual forward | indeterminada | no cuantificada |
-| 6 | `R_declarado` ≠ `R_efectivo` por capitalización intra-anual | subestima la etiqueta | +0,0488 pp/año |
-| 7 | «Retiro sostenible» tiene dos definiciones según el modelo | conservador en dividendos con `g>i` | 3,50% vs 5,38% en el caso ejemplo |
-| 8 | Reparto calculado sobre el valor con el aporte del mes ya dentro | sobrestima | +0,289% con aportes parejos; +1,33% con un lump en mes de pago |
-| 9 | Convención de anualidad anticipada en ambos módulos | sobrestima | ~1 mes de retorno sobre lo aportado |
-| 10 | Reparto pre-crecimiento en retiro vs post-crecimiento en acumulación | subestima el retiro | 0,46% por reparto |
-| 11 | Deducibilidad de la comisión AFP de la base afecta | subestima el impuesto si no aplica | a verificar |
-| 12 | Pensión anual prorrateada vs meta mensual puntual | subestima cobertura en el año de transición | sólo un año |
-| 13 | Serie IPC desde 2000: excluye el régimen de inflación alta | subestima la cola | — |
-| 14 | Efectivo no reinvertido: no renta en acumulación, sí en retiro | menor | — |
-| 15 | Déficit mensual no se arrastra tras el agotamiento | filas post-agotamiento no financiables | — |
-| 16 | Sin impuesto a la ganancia de capital | despreciable por art. 107 LIR desde 2027 | ~0 |
+| 6 | `R_declarado` ≠ `R_efectivo` por capitalización intra-anual de lo repartido | subestima la etiqueta | +0,0243 pp/año con `n = 4` |
+| 7 | Consumir el retorno real exige **vender**, no sólo cobrar reparto | es una restricción del usuario, no un sesgo | `payout_only` se informa al lado |
+| 8 | Convención de anualidad anticipada en ambos módulos | sobrestima | ~1 mes de retorno sobre lo aportado |
+| 9 | Deducibilidad de la comisión AFP de la base afecta | subestima el impuesto si no aplica | a verificar |
+| 10 | Pensión anual prorrateada vs meta mensual puntual | subestima cobertura en el año de transición | sólo un año |
+| 11 | Serie IPC desde 2000: excluye el régimen de inflación alta | subestima la cola | — |
+| 12 | Efectivo no reinvertido: no renta en acumulación, sí en retiro | menor | — |
+| 13 | Déficit mensual no se arrastra tras el agotamiento | filas post-agotamiento no financiables | — |
+| 14 | Sin impuesto a la ganancia de capital | despreciable por art. 107 LIR desde 2027 | ~0 |
 
 ---
 
@@ -782,7 +779,16 @@ Comprobaciones reproducibles que deberían mantenerse ante cualquier cambio:
 (V8)  impuesto_unico(200 UTM) == $3.347.936 ; (600 UTM) == $14.428.831
 (V9)  saldo_final(_max_spend·1,01) ≤ 1                                  (bisección acota)
 (V10) total_dividends_net + total_dividends_tax == total_dividends      (± $0,01)
+(V11) el patrimonio final es monótono decreciente en el mes del aporte
+      extraordinario, y el costo marginal de atrasarlo un mes no varía
+      más de 1,15× entre meses de pago y meses sin pago
+(V12) el mismo instrumento como 'simple' y como 'dividends' entrega la
+      misma tasa sostenible y el mismo año de independencia
+(V13) sin reinversión, lo repartido no depende del calendario de pagos
 ```
+
+Están **implementadas** en `test_stonks.py` — 71 pruebas, `make test` —, junto con una regresión
+por cada hallazgo de `AUDITORIA.md`, de modo que un retroceso vuelva a fallar donde se detectó.
 
 ---
 

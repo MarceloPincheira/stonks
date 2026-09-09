@@ -207,8 +207,8 @@ def normalize_input(payload):
 
 
 def _retirement_path(spend_today, start_month, end_month, portfolio, deflator,
-                     monthly_rate, per_payout, payout_months, pension_today,
-                     pension_start, rows=False):
+                     monthly_rate, accrual_rate, payout_months, pension_today,
+                     pension_start, accrual0=0.0, rows=False):
     """Consume el patrimonio mes a mes desde que se deja de aportar.
 
     Cada mes hay que juntar `spend_today` en pesos de hoy. Lo pone primero la pensión
@@ -218,11 +218,17 @@ def _retirement_path(spend_today, start_month, end_month, portfolio, deflator,
     """
     detalle = []
     agotado = None
+    devengo = accrual0
     for m in range(start_month + 1, end_month + 1):
         d = deflator(m)
         necesita = spend_today * d
         pension = pension_today * d if pension_start and m >= pension_start else 0.0
-        dividendo = portfolio * per_payout if per_payout and ((m - 1) % 12) + 1 in payout_months else 0.0
+        # El reparto se devenga todos los meses sobre el valor capitalizado y se paga
+        # acumulado en su mes, igual que en la acumulación.
+        devengo += portfolio * (1 + monthly_rate) * accrual_rate
+        dividendo = 0.0
+        if accrual_rate and ((m - 1) % 12) + 1 in payout_months:
+            dividendo, devengo = devengo, 0.0
         ingreso = pension + dividendo
         del_fondo = max(0.0, necesita - ingreso)
         sobra = max(0.0, ingreso - necesita)
@@ -300,11 +306,12 @@ def project(data):
     monthly_rate = (1 + growth_pct / 100.0) ** (1 / 12) - 1
 
     payout_months = data["payout_months"]
-    per_payout = (
-        (data["dividend_yield"] / 100.0) / len(payout_months)
-        if dividends_on and payout_months
-        else 0.0
-    )
+    # El reparto se DEVENGA mes a mes (yield/12 del valor del fondo) y se paga acumulado
+    # en los meses indicados. Repartir en cambio una fracción fija del valor en la fecha
+    # de pago hace que el dinero que entra ese mes cobre un trimestre completo de
+    # dividendo -- o, al revés, que llegar un mes tarde cueste el reparto entero. El
+    # devengo elimina el salto: lo repartido en el año es siempre ≈ valor × yield.
+    accrual_rate = (data["dividend_yield"] / 100.0) / 12 if dividends_on else 0.0
 
     amounts = monthly_amount_table(data["ranges"], total_months)
 
@@ -360,6 +367,8 @@ def project(data):
     cash = 0.0           # dividendos cobrados y no reinvertidos
     invested = 0.0       # aportes de tu bolsillo, sin reinversión
     reinvested = 0.0     # dividendos que volvieron al fondo
+    dividend_accrual = 0.0       # reparto devengado y aún no pagado
+    accrual_by_month = {}
     dividends_total = 0.0        # bruto repartido por el fondo
     dividends_net_total = 0.0    # lo que queda después de impuesto
     dividends_tax_total = 0.0
@@ -376,11 +385,15 @@ def project(data):
         growth = (portfolio + contribution) * monthly_rate
         portfolio = portfolio + contribution + growth
 
+        # devengo del mes sobre el valor del fondo ya capitalizado
+        dividend_accrual += portfolio * accrual_rate
+        accrual_by_month[m] = dividend_accrual
         dividend = 0.0
         dividend_net = 0.0
         dividend_tax_m = 0.0
         if dividends_on and ((m - 1) % 12) + 1 in payout_months:
-            dividend = portfolio * per_payout
+            dividend, dividend_accrual = dividend_accrual, 0.0
+            accrual_by_month[m] = 0.0
             dividend_tax_m = dividend * tax_rate
             dividend_net = dividend - dividend_tax_m
             dividends_total += dividend
@@ -471,10 +484,19 @@ def project(data):
     # sacar nada.
     growth_gap = max(0.0, data["inflation"] - growth_pct)
     net_yield = data["dividend_yield"] * (1 - tax_rate)
-    if dividends_on:
-        sustainable_rate = net_yield - growth_gap
-    else:
-        sustainable_rate = ((1 + data["annual_return"] / 100) / (1 + inflation_rate) - 1) * 100
+
+    # Retorno total NETO del instrumento: la plusvalía compone con el reparto neto.
+    total_net = ((1 + growth_pct / 100) * (1 + net_yield / 100) - 1) if dividends_on \
+        else data["annual_return"] / 100
+    # Lo máximo que se puede retirar a perpetuidad sin perder poder adquisitivo es el
+    # retorno REAL: consumirlo entero deja el capital constante en pesos de hoy.
+    sustainable_rate = ((1 + total_net) / (1 + inflation_rate) - 1) * 100
+
+    # Cifra secundaria: cuánto de eso sale SÓLO de los repartos, sin vender una cuota.
+    # Es más exigente y era lo único que se informaba antes; con plusvalía por sobre la
+    # inflación pedía casi el doble de capital y declaraba inalcanzable una meta que sí
+    # se alcanza, porque se negaba a contar la plusvalía real como consumible.
+    payout_only_rate = (net_yield - growth_gap) if dividends_on else 0.0
     reinvest_share = (growth_gap / net_yield * 100) if dividends_on and net_yield > 0 else None
 
     # Desde la edad de jubilación la AFP paga una pensión y la meta que debe cubrir la
@@ -578,8 +600,9 @@ def project(data):
         saldo_inicial = (base["portfolio"] + base["cash"]) if base else 0.0
         comun = dict(
             start_month=inicio, portfolio=saldo_inicial, deflator=deflator,
-            monthly_rate=monthly_rate, per_payout=per_payout * (1 - tax_rate),
+            monthly_rate=monthly_rate, accrual_rate=accrual_rate * (1 - tax_rate),
             payout_months=payout_months,
+            accrual0=accrual_by_month.get(inicio, 0.0) * (1 - tax_rate),
             pension_today=pension_today, pension_start=pension_start,
         )
         # lo máximo que se puede gastar para llegar justo a cero a la edad objetivo
@@ -641,6 +664,8 @@ def project(data):
         "coverage_at_target": target["coverage"] if target else None,
         "first_year_covered": first_covered,
         "sustainable_rate": round(sustainable_rate, 3),
+        "payout_only_rate": round(payout_only_rate, 3) if dividends_on else None,
+        "total_net_return_pct": round(total_net * 100, 3),
         "reinvest_share_needed": round(reinvest_share, 1) if reinvest_share is not None else None,
         "fi_year": fi_year,
         "fi_capital": fi_row["portfolio"] if fi_row else None,
