@@ -2,6 +2,14 @@ __pycache__/
 *.pyc
 
 # Bases locales: guardan el perfil con sueldo, saldo AFP y fecha de nacimiento.
-# stonks.db se recrea sola al arrancar (db.init() siembra los escenarios de ejemplo);
-# stonks.personal.db es la copia con los datos de verdad. Ninguna se versiona.
+# `stonks.db` es la que usa la app y NO se versiona: trae datos reales.
 *.db
+
+# La excepción, deliberada: `stonks.db.example` es el perfil de demostración del README
+# (imponible $1.200.000, sin saldo AFP) y sí se versiona, para que quien clone tenga de
+# dónde partir. La negación es explícita porque `*.db` no cubre `.db.example`: sin esta
+# línea el archivo se versionaría por accidente y no por decisión.
+!stonks.db.example
+
+# Ruido de macOS
+.DS_Store

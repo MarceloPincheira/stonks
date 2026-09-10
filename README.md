@@ -23,11 +23,18 @@ ocupado avisa en vez de reventar con un traceback.
 Si el puerto está ocupado, `make init` toma el primero libre que encuentre y lo dice en pantalla,
 en vez de caerse.
 
-La base (`stonks.db`) **no se versiona**: guarda el perfil con sueldo, saldo AFP y fecha de
-nacimiento. La que trae el repo es un perfil de demostración —imponible $1.200.000 sin
-asignaciones, sin saldo AFP acumulado, aportes de $200.000 al mes— y es el mismo con el que
-están calculados los ejemplos de este README. Lo primero al usarla es abrir **Mi perfil** y
-reemplazarlo por los datos propios.
+La base que usa la app es `stonks.db` y **no se versiona**: guarda el perfil con sueldo, saldo
+AFP y fecha de nacimiento, o sea datos personales. `make init` la crea si no existe, con los
+dos escenarios de ejemplo y un perfil en blanco; lo primero al usarla es abrir **Mi perfil** y
+poner los datos propios.
+
+Los ejemplos de este README están calculados con un perfil de demostración: imponible
+$1.200.000 sin asignaciones, sin saldo AFP acumulado y aportes de $200.000 al mes.
+
+> Si quieres versionar una base de demostración para que quien clone parta de algo, guárdala
+> como **`stonks.db.example`**: `.gitignore` la exceptúa a propósito (`*.db` no cubre
+> `.db.example`, así que la excepción está escrita explícitamente). Cópiala a `stonks.db` para
+> usarla. **Cuidado al hacerlo: sobrescribe el perfil que tengas**, así que respalda antes.
 
 También sirve `python3 server.py` a secas, o `PORT=9000 python3 server.py`.
 
@@ -37,6 +44,9 @@ El frontend usa **Chart.js** (gráfico) y **Grid.js** (tabla), ambas vanilla y *
 
 > Si tocas un `.py`, reinicia el servidor (`make restart`): Python mantiene los módulos
 > cargados en memoria.
+
+Las pruebas del modelo corren con `make test` (71 casos, stdlib, sin dependencias) y no tocan
+`stonks.db`.
 
 La interfaz es **reactiva**: cualquier cambio en los parámetros o en los tramos vuelve a
 proyectar solo (debounce de 220 ms), sin botón de calcular. El badge junto a "Resultado"
@@ -476,6 +486,13 @@ la suma total con un único factor: sumar aportes de 30 años distintos y luego 
 un solo deflactor mezclaría pesos heterogéneos.
 
 Las tarjetas van en orden: lo que pones → lo que genera → lo que resulta → cuándo eres libre.
+
+**Cada tarjeta dice a qué momento se refiere**, porque en la misma grilla conviven hasta tres:
+el mes en que dejas de aportar, el fin del horizonte del escenario y la edad objetivo de la
+fase de retiro. Son instantes distintos y sus cifras no se comparan entre sí. El caso que más
+confundía: *Aportado por ti* se congela cuando dejas de aportar, mientras *Aportado +
+reinvertido* sigue creciendo hasta el fin del horizonte, porque los dividendos se reinvierten
+solos aunque tú ya no pongas nada.
 
 ### Decisiones estadísticas
 

@@ -13,7 +13,10 @@
     <h1>📈 Stonks</h1>
     <p>Proyecta cuánto acumulas aportando montos distintos en cada tramo de meses.</p>
   </div>
-  <button type="button" id="open-profile" class="secondary">👤 Mi perfil</button>
+  <div class="header-acciones">
+    <a href="/docs.html" class="secondary boton" title="Cómo se calcula cada cifra">📄 Cómo se calcula</a>
+    <button type="button" id="open-profile" class="secondary">👤 Mi perfil</button>
+  </div>
 </header>
 
 <main>
@@ -179,6 +182,7 @@
     <div class="goal-banner fi" id="fi-banner" hidden></div>
     <div class="goal-banner afp" id="afp-banner" hidden></div>
     <div class="goal-banner" id="sensitivity-banner" hidden></div>
+    <p class="hint" id="kpi-hitos"></p>
     <div class="kpis" id="kpis"></div>
     <div class="tabs" id="chart-units">
       <button type="button" class="tab active" data-units="nominal">Pesos nominales</button>

@@ -147,6 +147,15 @@ button.icon {
   font-variant-numeric: tabular-nums; letter-spacing: -.01em;
   overflow-wrap: anywhere;
 }
+/* Cada tarjeta mira un momento distinto -- dejar de aportar, el fin del horizonte, la
+   edad objetivo -- y sin decirlo la grilla mezclaba cifras no comparables. */
+.kpi .when {
+  align-self: flex-start; margin: 1px 0 2px;
+  font-size: 10px; text-transform: none; letter-spacing: 0;
+  color: var(--muted); background: var(--panel); border: 1px solid var(--line);
+  border-radius: 999px; padding: 1px 7px; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis; max-width: 100%;
+}
 .kpi .v.good { color: var(--accent); }
 .kpi .v.bad { color: #fca5a5; }
 .kpi .sub { color: var(--muted); font-size: 11.5px; margin-top: 3px; font-variant-numeric: tabular-nums; }
@@ -390,6 +399,15 @@ input, select { min-width: 0; }
 /* --- header con acción --------------------------------------------- */
 header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
 header button { flex: none; }
+.header-acciones { display: flex; gap: 8px; flex: none; align-items: center; }
+
+/* Un <a> que se ve como botón: la documentación es una página aparte, no un modal. */
+.boton {
+  display: inline-block; text-decoration: none; white-space: nowrap;
+  background: var(--panel-2); color: var(--text); border: 1px solid var(--line);
+  border-radius: 8px; padding: 8px 14px; font-size: 14px; font-weight: 600;
+}
+.boton:hover { filter: brightness(1.15); }
 
 /* --- modal ----------------------------------------------------------- */
 .modal-backdrop {
@@ -457,4 +475,66 @@ header button { flex: none; }
   .modal-backdrop { padding: 12px; }
   .modal-foot { flex-direction: column; align-items: stretch; }
   .modal-foot > div { justify-content: flex-end; }
+}
+
+
+/* --- documentación --------------------------------------------------- */
+/* Vive en su propia página (docs.html): los documentos son largos y se leen, no se
+   consultan de reojo, así que no caben en un modal. */
+.doc-layout {
+  grid-column: 1 / -1;
+  display: grid; grid-template-columns: minmax(0, 260px) minmax(0, 1fr); gap: 18px;
+  align-items: start;
+}
+.doc-nav { position: sticky; top: 16px; max-height: calc(100vh - 32px); overflow-y: auto; }
+.doc-nav ul { list-style: none; margin: 0 0 18px; padding: 0; }
+.doc-nav li { margin-bottom: 8px; }
+.doc-nav a { color: var(--text); text-decoration: none; font-size: 14px; }
+.doc-nav a:hover { color: var(--accent-2); }
+.doc-nav a.activo { color: var(--accent); font-weight: 700; }
+.doc-detalle { display: block; color: var(--muted); font-size: 11.5px; line-height: 1.4; margin-top: 2px; }
+#doc-toc li { margin-bottom: 5px; }
+#doc-toc li.n3 { padding-left: 12px; }
+#doc-toc a { color: var(--muted); font-size: 12.5px; }
+
+.doc-body { min-width: 0; }
+.doc-body article { max-width: 78ch; }
+.doc-body h1 { font-size: 26px; margin: 0 0 6px; }
+.doc-body h2 {
+  font-size: 19px; margin: 30px 0 10px; padding-top: 14px;
+  border-top: 1px solid var(--line); color: var(--text);
+  text-transform: none; letter-spacing: 0;
+}
+.doc-body h3 { font-size: 15.5px; margin: 22px 0 8px; color: var(--accent-2); }
+.doc-body h4 { font-size: 14px; margin: 16px 0 6px; color: var(--muted); }
+.doc-body p, .doc-body li { line-height: 1.65; }
+.doc-body code {
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: 4px;
+  padding: 1px 5px; font-size: 12.5px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.doc-body pre {
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px;
+  padding: 12px 14px; overflow-x: auto; font-size: 12.5px; line-height: 1.55;
+}
+.doc-body pre code { background: none; border: 0; padding: 0; font-size: inherit; }
+.doc-body blockquote {
+  margin: 14px 0; padding: 10px 14px;
+  border-left: 3px solid var(--accent-2); background: var(--panel-2);
+  border-radius: 0 8px 8px 0;
+}
+.doc-body blockquote p { margin: 6px 0; }
+.doc-body hr { border: 0; border-top: 1px solid var(--line); margin: 26px 0; }
+.doc-body a { color: var(--accent-2); }
+/* Las tablas del documento son anchas: scrollean solas en vez de romper la página. */
+.doc-tabla { overflow-x: auto; margin: 14px 0; }
+.doc-tabla table { border-collapse: collapse; width: 100%; font-size: 13px; }
+.doc-tabla th, .doc-tabla td {
+  border: 1px solid var(--line); padding: 7px 10px; text-align: left; vertical-align: top;
+}
+.doc-tabla th { background: var(--panel-2); color: var(--muted); font-weight: 600; }
+
+@media (max-width: 900px) {
+  .doc-layout { grid-template-columns: minmax(0, 1fr); }
+  .doc-nav { position: static; max-height: none; }
 }

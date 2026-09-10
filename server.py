@@ -15,6 +15,22 @@ import afp
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 STATIC_DIR = os.path.join(BASE_DIR, "static")
 SCENARIO_RE = re.compile(r"^/api/scenarios/(\d+)$")
+DOC_RE = re.compile(r"^/api/docs/([a-z]+)$")
+
+# Documentación del proyecto, servida desde la propia app: de nada sirve escribir cómo se
+# calcula cada cifra si para leerlo hay que ir a buscar un archivo al repositorio. El
+# nombre del archivo NUNCA sale de la URL -- se resuelve por esta tabla -- para que la
+# ruta no se pueda usar para leer cualquier archivo del disco.
+DOCS = {
+    "modelo": ("MODELO.md", "Cómo se calcula",
+               "Especificación técnica del modelo: cada fórmula tal como está implementada, "
+               "el supuesto que la sostiene y el sesgo que introduce."),
+    "auditoria": ("AUDITORIA.md", "Auditoría del modelo",
+                  "Los hallazgos de la revisión adversarial, con su reproducción numérica "
+                  "y cómo quedó cada uno."),
+    "manual": ("README.md", "Manual",
+               "Qué hace la app, cómo se usa y de dónde sale cada parámetro legal."),
+}
 
 
 class Handler(SimpleHTTPRequestHandler):
@@ -76,6 +92,24 @@ class Handler(SimpleHTTPRequestHandler):
         if self.path == "/api/inflation":
             return self._json({"presets": inflation.presets(), "series": inflation.IPC_CL,
                                "crises": inflation.CRISES})
+        if self.path == "/api/docs":
+            return self._json([{"slug": k, "titulo": t, "detalle": d}
+                               for k, (_, t, d) in DOCS.items()])
+        m = DOC_RE.match(self.path)
+        if m:
+            entrada = DOCS.get(m.group(1))
+            if entrada is None:
+                return self._json({"error": "Documento no encontrado."}, 404)
+            try:
+                with open(os.path.join(BASE_DIR, entrada[0]), encoding="utf-8") as fh:
+                    cuerpo = fh.read().encode("utf-8")
+            except OSError:
+                return self._json({"error": "El documento no está en el disco."}, 404)
+            self.send_response(200)
+            self.send_header("Content-Type", "text/markdown; charset=utf-8")
+            self.send_header("Content-Length", str(len(cuerpo)))
+            self.end_headers()
+            return self.wfile.write(cuerpo)
         m = SCENARIO_RE.match(self.path)
         if m:
             scenario = db.get_scenario(int(m.group(1)))
