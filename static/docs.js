@@ -12,8 +12,21 @@ function slugDesdeUrl() {
   return h.startsWith("#/") ? (h.slice(2).split("/")[0] || null) : null;
 }
 
+/** Este 404 tiene una causa concreta y repetible: la página es un archivo estático que
+ *  el servidor lee del disco en cada request, pero las rutas viven en el módulo que
+ *  Python cargó al arrancar. Tras tocar un .py, la página nueva aparece y la ruta que
+ *  necesita todavía no existe. Decirlo ahorra el rato de buscar el error en otra parte. */
+const SERVIDOR_DESACTUALIZADO =
+  "El servidor no conoce la ruta /api/docs. Si acabas de actualizar el código, " +
+  "reinícialo con  make restart : Python mantiene los módulos cargados en memoria, " +
+  "así que los archivos de static/ se ven al instante pero las rutas nuevas no.";
+
 async function cargarIndice() {
   const res = await fetch("/api/docs");
+  if (!res.ok) {
+    throw new Error(res.status === 404 ? SERVIDOR_DESACTUALIZADO
+                                       : `No pude leer el índice de documentos (${res.status}).`);
+  }
   docs = await res.json();
   $("#doc-list").innerHTML = docs.map((d) =>
     `<li><a href="#/${d.slug}" data-slug="${d.slug}">${d.titulo}</a>` +
@@ -28,7 +41,10 @@ async function cargarDoc(slug) {
   $("#doc-status").textContent = "Cargando…";
   try {
     const res = await fetch(`/api/docs/${meta.slug}`);
-    if (!res.ok) throw new Error(`No se pudo leer el documento (${res.status})`);
+    if (!res.ok) {
+      throw new Error(res.status === 404 ? SERVIDOR_DESACTUALIZADO
+                                         : `No se pudo leer el documento (${res.status}).`);
+    }
     const md = await res.text();
     const { html, toc } = renderMarkdown(md);
     $("#doc-content").innerHTML = html;
@@ -67,6 +83,7 @@ window.addEventListener("hashchange", () => {
   if (s && s !== actual) cargarDoc(s);   // un ancla de sección la resuelve el navegador
 });
 
-cargarIndice().then(() => cargarDoc(slugDesdeUrl() || "modelo")).catch(() => {
-  $("#doc-status").textContent = "No pude cargar la documentación.";
+cargarIndice().then(() => cargarDoc(slugDesdeUrl() || "modelo")).catch((e) => {
+  $("#doc-status").hidden = false;
+  $("#doc-status").textContent = e.message || "No pude cargar la documentación.";
 });
