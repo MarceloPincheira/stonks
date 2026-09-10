@@ -2,6 +2,12 @@
 
 Calculadora de proyección de inversión con aportes por tramos de meses.
 
+<img width="855" height="656" alt="image" src="https://github.com/user-attachments/assets/2676c590-0a05-4bd2-bb46-9b1271ef0703" />
+
+
+<img width="1461" height="801" alt="image" src="https://github.com/user-attachments/assets/564676dc-41a2-4889-a69d-93c5d0b4fd81" />
+
+
 ## Cómo correrla
 
 ```bash
