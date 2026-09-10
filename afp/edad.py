@@ -1,9 +1,11 @@
 """Edad exacta a partir de la fecha de nacimiento."""
+from __future__ import annotations
 
-def edad_desde(nacimiento, hoy=None):
+from datetime import date
+
+
+def edad_desde(nacimiento: str, hoy: date | None = None) -> float:
     """Edad exacta en años (con decimales) a partir de una fecha ISO 'YYYY-MM-DD'."""
-    from datetime import date
-
     hoy = hoy or date.today()
     y, m, d = (int(x) for x in str(nacimiento).split("-")[:3])
     nace = date(y, m, d)

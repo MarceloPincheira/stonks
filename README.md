@@ -53,8 +53,13 @@ El frontend usa **Chart.js** (gráfico) y **Grid.js** (tabla), ambas vanilla y *
 > Si tocas un `.py`, reinicia el servidor (`make restart`): Python mantiene los módulos
 > cargados en memoria.
 
-Las pruebas del modelo corren con `make test` (71 casos, stdlib, sin dependencias) y no tocan
-`stonks.db`.
+Las pruebas corren con `make test` (80 casos, stdlib, sin dependencias) y no tocan `stonks.db`:
+71 verifican el modelo y 9 son guardias de estilo.
+
+El código Python sigue **PEP 8** con el límite de línea en 99 columnas —que la propia PEP
+autoriza subir desde 79— y lleva anotaciones de tipo **PEP 484** en toda su superficie
+pública. Las dos cosas se verifican en `test_estilo.py` en vez de depender de que alguien
+tenga un linter instalado: `setup.cfg` deja la configuración escrita por si lo hay.
 
 La interfaz es **reactiva**: cualquier cambio en los parámetros o en los tramos vuelve a
 proyectar solo (debounce de 220 ms), sin botón de calcular. El badge junto a "Resultado"
@@ -560,6 +565,9 @@ Ojo con el promedio de rentabilidad total: entre 2022 y 2025 da ~21% anual compu
 | `db.py` | Esquema, migraciones y acceso a SQLite: escenarios, perfil, plan de aporte y aportes extraordinarios |
 | `inflation.py` | Serie del IPC chileno y ventanas de estimación |
 | `test_stonks.py` | Pruebas del modelo (`make test`) |
+| `test_estilo.py` | Guardias de PEP 8 y de cobertura de anotaciones |
+| `engine/tipos.py` | Tipos del dominio compartidos (`Tramo`, `Escenario`, `Resultado`…) |
+| `setup.cfg` | Configuración de linters, por si se instala alguno |
 | `static/js/` | Frontend en módulos ES nativos, sin build: `main.js` cablea el DOM, el resto expone funciones |
 | `static/css/` | Hojas por responsabilidad: `base`, `componentes`, `responsive`, `vendor`, `tooltip`, `modal`, `docs` |
 | `static/vendor/` | Chart.js y Grid.js servidos localmente |

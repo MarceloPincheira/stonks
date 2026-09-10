@@ -1,36 +1,39 @@
 """Rutas HTTP: API JSON sobre `http.server`, más los archivos de `static/`."""
+from __future__ import annotations
+
+from http.server import SimpleHTTPRequestHandler
+from typing import Any
 import json
 import os
 import re
 import sys
-from http.server import SimpleHTTPRequestHandler
 
+from .documentos import BASE_DIR, DOCS, DOC_RE
+from .perfil import con_perfil, normalizar_perfil
 import afp
 import db
 import engine
 import inflation
 
-from .documentos import BASE_DIR, DOCS, DOC_RE
-from .perfil import con_perfil, normalizar_perfil
-
 STATIC_DIR = os.path.join(BASE_DIR, "static")
 SCENARIO_RE = re.compile(r"^/api/scenarios/(\d+)$")
 
+
 class Handler(SimpleHTTPRequestHandler):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, directory=STATIC_DIR, **kwargs)
 
-    def log_message(self, fmt, *args):
+    def log_message(self, fmt: str, *args: Any) -> None:
         sys.stderr.write("%s - %s\n" % (self.address_string(), fmt % args))
 
-    def end_headers(self):
+    def end_headers(self) -> None:
         # Sin esta cabecera el navegador aplica caché heurística y se queda
         # con el CSS/JS viejo sin revalidar.
         self.send_header("Cache-Control", "no-store, max-age=0")
         super().end_headers()
 
     # --- helpers -----------------------------------------------------
-    def _json(self, payload, status=200):
+    def _json(self, payload: Any, status: int = 200) -> None:
         body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
@@ -38,21 +41,22 @@ class Handler(SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
-    def _body(self):
+    def _body(self) -> dict[str, Any]:
         length = int(self.headers.get("Content-Length") or 0)
         if length == 0:
             return {}
         return json.loads(self.rfile.read(length).decode("utf-8"))
 
     # --- routing -----------------------------------------------------
-    def do_GET(self):
+    def do_GET(self) -> None:
         if self.path == "/api/scenarios":
             return self._json(db.list_scenarios())
         if self.path == "/api/profile":
             data = db.get_profile()
             if data["profile"]:
                 try:
-                    data["afp"] = afp.proyectar({**data["profile"], "fondo": data["profile"]["fondo"]})
+                    perfil = data["profile"]
+                    data["afp"] = afp.proyectar({**perfil, "fondo": perfil["fondo"]})
                 except (KeyError, ValueError):
                     data["afp"] = None
             return self._json(data)
@@ -103,7 +107,7 @@ class Handler(SimpleHTTPRequestHandler):
             return self._json({"error": "Ruta no encontrada."}, 404)
         return super().do_GET()
 
-    def do_POST(self):
+    def do_POST(self) -> None:
         try:
             payload = self._body()
         except (ValueError, json.JSONDecodeError):
@@ -150,10 +154,10 @@ class Handler(SimpleHTTPRequestHandler):
 
         return self._json({"error": "Ruta no encontrada."}, 404)
 
-    def do_PUT(self):
+    def do_PUT(self) -> None:
         return self.do_POST()
 
-    def do_DELETE(self):
+    def do_DELETE(self) -> None:
         m = SCENARIO_RE.match(self.path)
         if m:
             if db.delete_scenario(int(m.group(1))):

@@ -1,8 +1,25 @@
 """Fase de desacumulación: consumir el patrimonio hasta la edad objetivo."""
+from __future__ import annotations
 
-def _retirement_path(spend_today, start_month, end_month, portfolio, deflator,
-                     monthly_rate, accrual_rate, payout_months, pension_today,
-                     pension_start, accrual0=0.0, rows=False):
+from typing import Any
+
+from .tipos import Deflactor
+
+
+def _retirement_path(
+    spend_today: float,
+    start_month: int,
+    end_month: int,
+    portfolio: float,
+    deflator: Deflactor,
+    monthly_rate: float,
+    accrual_rate: float,
+    payout_months: list[int],
+    pension_today: float,
+    pension_start: int | None,
+    accrual0: float = 0.0,
+    rows: bool = False,
+) -> tuple[list[dict[str, float]], int | None, float]:
     """Consume el patrimonio mes a mes desde que se deja de aportar.
 
     Cada mes hay que juntar `spend_today` en pesos de hoy. Lo pone primero la pensión
@@ -48,7 +65,7 @@ def _retirement_path(spend_today, start_month, end_month, portfolio, deflator,
     return detalle, agotado, portfolio
 
 
-def _max_spend(objetivo_mes, **kw):
+def _max_spend(objetivo_mes: int, **kw: Any) -> float:
     """Cuánto se puede gastar al mes (en pesos de hoy) para llegar justo a cero.
 
     Bisección: el saldo final es monótono decreciente en el gasto, así que basta con

@@ -3,13 +3,19 @@
 Es la única puerta de entrada al motor: todo lo que sigue asume que el diccionario ya
 tiene todas las claves y los rangos verificados.
 """
+from __future__ import annotations
+
 from datetime import date as _date
+from typing import Any
+
+from .tipos import AporteExtraordinario, Escenario, Payload, Tramo
+
 
 class ValidationError(ValueError):
     pass
 
 
-def _num(payload, key, default):
+def _num(payload: Payload, key: str, default: Any) -> int:
     value = payload.get(key, default)
     if value in (None, ""):
         return default
@@ -19,7 +25,7 @@ def _num(payload, key, default):
         raise ValidationError(f"El campo '{key}' debe ser un número entero.")
 
 
-def _pct(payload, key, default=0.0):
+def _pct(payload: Payload, key: str, default: float = 0.0) -> float:
     value = payload.get(key, default)
     if value in (None, ""):
         return default
@@ -29,7 +35,7 @@ def _pct(payload, key, default=0.0):
         raise ValidationError(f"El campo '{key}' debe ser numérico.")
 
 
-def normalize_input(payload):
+def normalize_input(payload: Payload) -> Escenario:
     """Valida y normaliza el payload que llega desde el frontend."""
     try:
         years = int(payload.get("years"))

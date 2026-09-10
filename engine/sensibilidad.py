@@ -3,14 +3,18 @@
 La proyección es determinista y publicar una edad de agotamiento sin decir cuánto se
 mueve promete una precisión que el modelo no tiene.
 """
+from __future__ import annotations
+
 from .acumulacion import project
+from .tipos import Escenario, Rango, Resultado
 
 # La proyección es determinista: una inflación, un retorno, una expectativa de vida.
 # Publicar "se agota a los 71" sin decir cuánto se mueve esa cifra si el retorno baja
 # un punto es prometer una precisión que el modelo no tiene, así que el resultado
 # viaja acompañado del rango que producen ±1 pp de retorno y ±1 pp de inflación.
 
-def _variante(data, retorno=0.0, inflacion=0.0):
+
+def _variante(data: Escenario, retorno: float = 0.0, inflacion: float = 0.0) -> Escenario:
     """Copia del escenario con el retorno y/o la inflación movidos en pp."""
     d = dict(data)
     d["inflation"] = data["inflation"] + inflacion
@@ -23,7 +27,7 @@ def _variante(data, retorno=0.0, inflacion=0.0):
     return d
 
 
-def _extraer(result):
+def _extraer(result: Resultado) -> dict[str, float | int | None]:
     ret = result.get("retirement") or {}
     return {
         "depletion_age": ret.get("depletion_age"),
@@ -33,7 +37,7 @@ def _extraer(result):
     }
 
 
-def _rango(valores):
+def _rango(valores: list[float | int | None]) -> Rango:
     """min/max de una métrica, tolerando los None (no se agota / no alcanza FI)."""
     concretos = [v for v in valores if v is not None]
     if not concretos:
@@ -46,7 +50,7 @@ def _rango(valores):
     }
 
 
-def sensitivity(data, result, paso=1.0):
+def sensitivity(data: Escenario, result: Resultado, paso: float = 1.0) -> dict[str, object]:
     """Cuánto se mueven las cifras clave con ±`paso` pp de retorno y de inflación.
 
     Cuatro proyecciones extra sobre el mismo escenario. No es un Monte Carlo: es la

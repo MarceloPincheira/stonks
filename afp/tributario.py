@@ -1,7 +1,10 @@
 """Impuesto único de segunda categoría (art. 42 N°1 y 52 de la LIR)."""
+from __future__ import annotations
+
 from .parametros import IUSC
 
-def impuesto_unico(base_tributable, utm):
+
+def impuesto_unico(base_tributable: float, utm: float) -> float:
     """Impuesto de segunda categoría mensual.
 
     La base es la renta imponible MENOS las cotizaciones obligatorias efectivamente

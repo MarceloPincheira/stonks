@@ -3,14 +3,20 @@
 Trabaja en pesos de hoy: la cotización se mantiene constante en poder adquisitivo (el
 sueldo se reajusta con la inflación) y el fondo rinde su tasa real.
 """
+from __future__ import annotations
+
+from typing import Any
+
+from .fondos import fondo_a_edad, fondo_por_defecto, rentabilidad_a_edad
 from .parametros import (APORTE_EMPLEADOR_CUENTA, CESANTIA_INDEFINIDO, COTIZACION_OBLIGATORIA,
                          EDAD_PENSION, EDAD_SALIDA_FONDO_A, EXPECTATIVA_VIDA, SALUD,
                          TASA_TECNICA, TOPE_CESANTIA_UF, TOPE_IMPONIBLE_UF, UTM_REFERENCIA)
-from .fondos import fondo_a_edad, fondo_por_defecto, rentabilidad_a_edad
 from .pension import pension_mensual
 from .tributario import impuesto_unico
 
-def proyectar(perfil, hasta_edad=None, trabajo_hasta=None):
+
+def proyectar(perfil: dict[str, Any], hasta_edad: float | None = None,
+              trabajo_hasta: float | None = None) -> dict[str, Any]:
     """Proyecta el saldo de la AFP mes a mes hasta la edad de pensión, y desde ahí
     hasta `hasta_edad` (por defecto la expectativa de vida) consumiéndolo en pensiones.
 

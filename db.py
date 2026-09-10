@@ -1,7 +1,11 @@
 """Capa de acceso a SQLite para los escenarios de inversión."""
+from __future__ import annotations
+
+from typing import Any, Iterable
 import os
 import sqlite3
 
+from engine.tipos import AporteExtraordinario, Escenario, Perfil, Tramo
 import afp
 import engine
 
@@ -115,14 +119,14 @@ SCENARIO_COLUMNS = (
 )
 
 
-def connect():
+def connect() -> sqlite3.Connection:
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
     return conn
 
 
-def init():
+def init() -> None:
     with connect() as conn:
         conn.executescript(SCHEMA)
         for tabla, migraciones in (("scenario", MIGRATIONS), ("profile", PROFILE_MIGRATIONS)):
@@ -145,7 +149,7 @@ def init():
     seed_examples()
 
 
-def _row_to_scenario(row):
+def _row_to_scenario(row: sqlite3.Row) -> Escenario:
     scenario = dict(row)
     scenario["reinvest"] = bool(scenario["reinvest"])
     scenario["index_contributions"] = bool(scenario.get("index_contributions", 0))
@@ -153,7 +157,7 @@ def _row_to_scenario(row):
     return scenario
 
 
-def list_scenarios():
+def list_scenarios() -> list[Escenario]:
     with connect() as conn:
         rows = conn.execute(
             "SELECT id, name, annual_return, years, currency, model, dividend_yield, "
@@ -164,7 +168,7 @@ def list_scenarios():
         return [_row_to_scenario(r) for r in rows]
 
 
-def get_scenario(scenario_id):
+def get_scenario(scenario_id: int) -> Escenario | None:
     with connect() as conn:
         row = conn.execute("SELECT * FROM scenario WHERE id = ?", (scenario_id,)).fetchone()
         if row is None:
@@ -179,7 +183,7 @@ def get_scenario(scenario_id):
         return scenario
 
 
-def _values(data):
+def _values(data: Escenario) -> tuple[Any, ...]:
     return (
         data["name"], data["annual_return"], data["years"], data["currency"],
         data["model"], data["dividend_yield"], data["appreciation"],
@@ -190,7 +194,8 @@ def _values(data):
     )
 
 
-def _save_scenario(conn, data, scenario_id=None):
+def _save_scenario(conn: sqlite3.Connection, data: Escenario,
+                   scenario_id: int | None = None) -> int | None:
     """Inserta o actualiza dentro de una transacción ya abierta. Devuelve el id."""
     if scenario_id is None:
         placeholders = ", ".join("?" * len(SCENARIO_COLUMNS.split(",")))
@@ -220,14 +225,14 @@ def _save_scenario(conn, data, scenario_id=None):
     return scenario_id
 
 
-def save_scenario(data, scenario_id=None):
+def save_scenario(data: Escenario, scenario_id: int | None = None) -> Escenario | None:
     """Inserta o actualiza un escenario junto con sus rangos."""
     with connect() as conn:
         scenario_id = _save_scenario(conn, data, scenario_id)
     return get_scenario(scenario_id) if scenario_id is not None else None
 
 
-def delete_scenario(scenario_id):
+def delete_scenario(scenario_id: int) -> bool:
     with connect() as conn:
         cur = conn.execute("DELETE FROM scenario WHERE id = ?", (scenario_id,))
         return cur.rowcount > 0
@@ -288,7 +293,7 @@ IPSA = {
 SEEDS = [("seeded_cfinrentas", CFINRENTAS), ("seeded_ipsa", IPSA)]
 
 
-def seed_examples():
+def seed_examples() -> None:
     """Carga cada escenario de ejemplo una sola vez; si el usuario lo borra, no vuelve.
 
     Las semillas pasan por `engine.normalize_input` en vez de ir crudas: es la única
@@ -327,7 +332,7 @@ PROFILE_COLUMNS = (
 )
 
 
-def get_profile():
+def get_profile() -> dict[str, Any]:
     with connect() as conn:
         row = conn.execute("SELECT * FROM profile WHERE id = 1").fetchone()
         profile = dict(row) if row else None
@@ -342,7 +347,8 @@ def get_profile():
                 except (ValueError, IndexError, AttributeError):
                     pass
         ranges = conn.execute(
-            "SELECT start_month, end_month, amount FROM profile_range ORDER BY position, start_month"
+            "SELECT start_month, end_month, amount FROM profile_range "
+            "ORDER BY position, start_month"
         ).fetchall()
         lumps = conn.execute(
             "SELECT year, month, amount, label FROM profile_lump ORDER BY year, month, position"
@@ -351,12 +357,14 @@ def get_profile():
             "lumps": [dict(l) for l in lumps]}
 
 
-def save_profile(data, ranges=None, lumps=None):
+def save_profile(data: Perfil, ranges: list[Tramo] | None = None,
+                 lumps: list[AporteExtraordinario] | None = None) -> dict[str, Any]:
     cols = [c.strip() for c in PROFILE_COLUMNS.split(",")]
     values = [data[c] if c != "contrato_indefinido" else (1 if data[c] else 0) for c in cols]
     with connect() as conn:
         conn.execute(
-            f"INSERT INTO profile (id, {PROFILE_COLUMNS}) VALUES (1, {', '.join('?' * len(cols))}) "
+            f"INSERT INTO profile (id, {PROFILE_COLUMNS}) "
+            f"VALUES (1, {', '.join('?' * len(cols))}) "
             f"ON CONFLICT(id) DO UPDATE SET "
             + ", ".join(f"{c} = excluded.{c}" for c in cols)
             + ", updated_at = datetime('now')",

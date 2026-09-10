@@ -5,9 +5,13 @@ Dos modelos:
   * 'dividends' -> plusvalía de la cuota + repartos periódicos, con la opción de
                    reinvertirlos o cobrarlos en efectivo.
 """
-from .retiro import _max_spend, _retirement_path
+from __future__ import annotations
 
-def monthly_amount_table(ranges, total_months):
+from .retiro import _max_spend, _retirement_path
+from .tipos import Escenario, Resultado, Tramo
+
+
+def monthly_amount_table(ranges: list[Tramo], total_months: int) -> list[float]:
     """Devuelve una lista de largo total_months con el aporte de cada mes."""
     table = [0.0] * total_months
     for r in ranges:
@@ -18,7 +22,7 @@ def monthly_amount_table(ranges, total_months):
     return table
 
 
-def project(data):
+def project(data: Escenario) -> Resultado:
     """Proyecta mes a mes. El aporte entra al inicio del mes y renta ese mismo mes.
 
     En el modelo con dividendos, la plusvalía se capitaliza todos los meses y el
@@ -243,7 +247,8 @@ def project(data):
         if pension_start is None:
             meses_con_pension = 0
         else:
-            meses_con_pension = max(0, min(y["month"], total_months) - max(y["month"] - 11, pension_start) + 1)
+            primer_mes = max(y["month"] - 11, pension_start)
+            meses_con_pension = max(0, min(y["month"], total_months) - primer_mes + 1)
         pension_monthly = pension_today * d * min(1.0, meses_con_pension / 12)
         goal_from_portfolio = max(0.0, goal_monthly - pension_monthly)
 
@@ -398,7 +403,8 @@ def project(data):
         "fi_year": fi_year,
         "fi_capital": fi_row["portfolio"] if fi_row else None,
         "fi_monthly": fi_row["sustainable_monthly"] if fi_row else None,
-        "capital_needed_sustainable": round(capital_needed_sustainable, 2) if capital_needed_sustainable else None,
+        "capital_needed_sustainable": (round(capital_needed_sustainable, 2)
+                                      if capital_needed_sustainable else None),
         "capital_needed_at_target": round(capital_needed, 2) if capital_needed else None,
         "final_real_balance": round((portfolio + cash) / deflator(total_months), 2),
         "reinvest": reinvest,

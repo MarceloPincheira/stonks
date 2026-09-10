@@ -1,6 +1,6 @@
 # Stonks -- atajos de desarrollo. Sin dependencias: sólo Python 3 de la stdlib.
 #
-#   make test            corre las pruebas del modelo
+#   make test            pruebas del modelo y de estilo (PEP 8 / PEP 484)
 #   make init            levanta todo en el puerto por defecto (o el primero libre)
 #   make init PORT=9000  fija otro puerto de partida
 #   make stop            mata el servidor que esté escuchando en PORT
@@ -19,7 +19,7 @@ check:
 	@python3 -c 'import sys; raise SystemExit(0 if sys.version_info >= (3, 9) else 1)' \
 	  || { echo "Necesitas Python 3.9 o superior (tienes $$(python3 -V 2>&1))."; exit 1; }
 
-## test: corre las pruebas del modelo (no tocan stonks.db)
+## test: pruebas del modelo y guardias de estilo (no tocan stonks.db)
 test:
 	@python3 -m unittest discover -p 'test_*.py' -v
 

@@ -3,14 +3,16 @@
 
 Las rutas viven en el paquete `web/`; aquí queda sólo cómo se levanta.
 """
-import os
+from __future__ import annotations
+
 from http.server import HTTPServer
+import os
 
-import db
 from web import Handler
+import db
 
 
-def puerto_libre(preferido):
+def puerto_libre(preferido: int) -> int:
     """El puerto pedido si está libre; si no, cualquiera que el sistema tenga a mano.
 
     Sondear y después enlazar deja una carrera teórica entre medio, pero en desarrollo
@@ -29,7 +31,7 @@ def puerto_libre(preferido):
     raise SystemExit("No hay puertos disponibles.")
 
 
-def main():
+def main() -> None:
     port = int(os.environ.get("PORT", 8420))
     db.init()
     server = HTTPServer(("127.0.0.1", port), Handler)

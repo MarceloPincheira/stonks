@@ -3,13 +3,18 @@
 Aquí se valida el perfil y se alinean las dos líneas de tiempo: la serie de la AFP arranca
 hoy y la proyección de la inversión en la fecha que fije el perfil.
 """
-from datetime import date
+from __future__ import annotations
 
+from datetime import date
+from typing import Any
+
+from engine.tipos import Payload, Perfil
 import afp
 import db
 import engine
 
-def con_perfil(payload):
+
+def con_perfil(payload: Payload) -> Payload:
     """Agrega al payload lo que sale del perfil: cuándo parte la inversión y la pensión.
 
     La fecha de inicio hace falta para ubicar los aportes extraordinarios, que se
@@ -77,9 +82,10 @@ def con_perfil(payload):
                 "trabajo_hasta", "meses_cotizando", "cnu", "expectativa_vida")}}
 
 
-def normalizar_perfil(payload):
+def normalizar_perfil(payload: Payload) -> Perfil:
     """Valida el perfil; los campos numéricos llegan como texto desde el formulario."""
-    def num(key, default=0.0, minimo=None, maximo=None):
+    def num(key: str, default: float = 0.0, minimo: float | None = None,
+            maximo: float | None = None) -> float:
         try:
             v = float(payload.get(key, default) or default)
         except (TypeError, ValueError):
@@ -109,10 +115,12 @@ def normalizar_perfil(payload):
     except (ValueError, IndexError, AttributeError):
         raise engine.ValidationError("Ingresa una fecha de nacimiento válida.")
     if not 15 <= edad <= 100:
-        raise engine.ValidationError("La edad derivada de esa fecha está fuera de rango (15 a 100).")
+        raise engine.ValidationError(
+            "La edad derivada de esa fecha está fuera de rango (15 a 100).")
     if edad >= afp.EDAD_PENSION[sexo]:
         raise engine.ValidationError(
-            f"La edad ya alcanzó la de pensión ({afp.EDAD_PENSION[sexo]}): no hay años por proyectar."
+            f"La edad ya alcanzó la de pensión ({afp.EDAD_PENSION[sexo]}): "
+            f"no hay años por proyectar."
         )
     return {
         "edad": edad,

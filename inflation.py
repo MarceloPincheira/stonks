@@ -6,6 +6,9 @@ de cambio flotante en 1999, así que los años anteriores (inflación de 30% en 
 convergiendo desde el ciclo inflacionario del siglo XX) pertenecen a otro régimen
 monetario y mezclarlos sesgaría la estimación al alza.
 """
+from __future__ import annotations
+
+from typing import Iterable
 
 IPC_CL = {
     2000: 4.5, 2001: 2.6, 2002: 2.8, 2003: 1.1, 2004: 2.4, 2005: 3.7, 2006: 2.6,
@@ -28,7 +31,7 @@ CRISES = {
 }
 
 
-def geometric_mean(years):
+def geometric_mean(years: Iterable[int]) -> float | None:
     """Media geométrica: la correcta para tasas que se componen.
 
     La aritmética sobreestima, porque promediar +12,8% y -1,4% no equivale al
@@ -43,12 +46,12 @@ def geometric_mean(years):
     return (product ** (1 / len(rates)) - 1) * 100
 
 
-def window(n_years):
+def window(n_years: int) -> range:
     """Los últimos n años disponibles de la serie."""
     return range(LAST_YEAR - n_years + 1, LAST_YEAR + 1)
 
 
-def presets():
+def presets() -> list[dict[str, object]]:
     """Opciones de ventana para el selector, de más corta a más larga."""
     options = [
         {

@@ -1,7 +1,10 @@
 """Conversión del saldo acumulado en pensión: Capital Necesario Unitario."""
+from __future__ import annotations
+
 from .parametros import EXPECTATIVA_VIDA, TASA_TECNICA
 
-def pension_mensual(saldo, sexo, tasa=None):
+
+def pension_mensual(saldo: float, sexo: str, tasa: float | None = None) -> float:
     """Pensión mensual que financia un saldo, en la misma moneda del saldo.
 
     La AFP divide el saldo por doce veces el **Capital Necesario Unitario**: el valor
