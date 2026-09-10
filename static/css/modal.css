@@ -1,0 +1,82 @@
+/** Cabecera con acciones y el modal del perfil. */
+
+/* --- header con acción --------------------------------------------- */
+header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+header button { flex: none; }
+.header-acciones { display: flex; gap: 8px; flex: none; align-items: center; }
+
+/* Un <a> que se ve como botón: la documentación es una página aparte, no un modal. */
+.boton {
+  display: inline-block; text-decoration: none; white-space: nowrap;
+  background: var(--panel-2); color: var(--text); border: 1px solid var(--line);
+  border-radius: 8px; padding: 8px 14px; font-size: 14px; font-weight: 600;
+}
+.boton:hover { filter: brightness(1.15); }
+
+/* --- modal ----------------------------------------------------------- */
+.modal-backdrop {
+  position: fixed; inset: 0; z-index: 100;
+  background: rgba(6, 9, 13, .72); backdrop-filter: blur(3px);
+  display: flex; align-items: flex-start; justify-content: center;
+  padding: 40px 20px; overflow-y: auto;
+}
+.modal {
+  background: var(--panel); border: 1px solid var(--line);
+  border-radius: 14px; width: 100%; max-width: 760px;
+  box-shadow: 0 24px 60px rgba(0,0,0,.6);
+  animation: modal-in .16s ease-out;
+}
+@keyframes modal-in { from { opacity: 0; transform: translateY(-8px); } }
+
+.modal-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 20px; border-bottom: 1px solid var(--line);
+}
+.modal-head h2 { margin: 0; font-size: 16px; text-transform: none; letter-spacing: 0; color: var(--text); }
+.modal-close {
+  background: none; border: 0; color: var(--muted);
+  font-size: 24px; line-height: 1; padding: 0 6px; cursor: pointer;
+}
+.modal-close:hover { color: var(--text); }
+
+.modal-body { padding: 4px 20px 20px; }
+.modal-body section { padding-top: 18px; }
+.modal-body section + section { border-top: 1px solid #232a33; }
+.modal-body h3 {
+  margin: 0 0 10px; font-size: 12px; text-transform: uppercase;
+  letter-spacing: .06em; color: var(--muted);
+}
+.modal-body .grid { margin-bottom: 0; }
+.modal-body .hint { margin-bottom: 10px; }
+.pair { display: flex; gap: 6px; }
+.pair select { flex: 1 1 60%; }
+.pair input { flex: 1 1 40%; }
+
+.modal-foot {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 14px 20px; border-top: 1px solid var(--line);
+  background: var(--panel-2); border-radius: 0 0 14px 14px;
+}
+.modal-foot > div { display: flex; gap: 8px; }
+.modal-foot .hint { margin: 0; }
+
+#afp-result .kpis { margin-bottom: 14px; }
+#afp-result .kpi { flex: 1 1 150px; }
+#afp-trayectoria { font-size: 13px; }
+#afp-trayectoria th { position: sticky; top: 0; background: var(--panel-2); }
+#afp-result .table-x { max-height: 240px; overflow: auto; border: 1px solid var(--line); border-radius: 8px; }
+
+.goal-banner.afp { border-left-color: #a78bfa; }
+
+#milestones-wrap { margin: 2px 0 14px; }
+#milestones { min-width: 640px; font-size: 13px; }
+#milestones td { padding: 7px 8px; border-top: 1px solid var(--line); }
+#milestones td:last-child { color: var(--muted); font-size: 12px; }
+#milestones tr.hito-clave td { background: #171d25; }
+
+@media (max-width: 620px) {
+  header { flex-direction: column; gap: 10px; }
+  .modal-backdrop { padding: 12px; }
+  .modal-foot { flex-direction: column; align-items: stretch; }
+  .modal-foot > div { justify-content: flex-end; }
+}

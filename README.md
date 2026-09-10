@@ -44,7 +44,9 @@ $1.200.000 sin asignaciones, sin saldo AFP acumulado y aportes de $200.000 al me
 
 También sirve `python3 server.py` a secas, o `PORT=9000 python3 server.py`.
 
-Backend sin dependencias: sólo Python 3 de la stdlib (`http.server` + `sqlite3`).
+Backend sin dependencias: sólo Python 3 de la stdlib (`http.server` + `sqlite3`). El
+frontend usa **módulos ES nativos**, así que tampoco hay paso de compilación: el navegador
+resuelve los `import` y lo que se edita es lo que corre.
 El frontend usa **Chart.js** (gráfico) y **Grid.js** (tabla), ambas vanilla y **descargadas en
 `static/vendor/`**, así que la app funciona sin internet.
 
@@ -550,15 +552,18 @@ Ojo con el promedio de rentabilidad total: entre 2022 y 2025 da ~21% anual compu
 
 | Archivo | Rol |
 |---|---|
-| `Makefile` | Atajos: `make init`, `stop`, `restart`, `db`, `help` |
-| `server.py` | Servidor HTTP + rutas API (responde `Cache-Control: no-store`, si no el navegador se queda con el CSS/JS viejo); busca puerto libre si el pedido está ocupado |
-| `engine.py` | Validación y motor de proyección |
-| `db.py` | Esquema, migraciones y acceso a SQLite (`stonks.db`): escenarios, perfil, plan de aporte y aportes extraordinarios; siembra los escenarios de ejemplo |
+| `Makefile` | Atajos: `make init`, `test`, `stop`, `restart`, `db`, `help` |
+| `server.py` | Punto de entrada: levanta el servidor y elige puerto |
+| `web/` | Capa web: `rutas.py` (API + estáticos), `perfil.py` (integración perfil↔escenario), `documentos.py` (los `.md` servidos desde la app) |
+| `engine/` | Motor de proyección por fase: `validacion.py`, `acumulacion.py`, `retiro.py`, `sensibilidad.py` |
+| `afp/` | Previsional chileno: `parametros.py` (constantes legales), `tributario.py` (impuesto único), `fondos.py` (traspasos por edad), `pension.py` (CNU), `proyeccion.py`, `edad.py` |
+| `db.py` | Esquema, migraciones y acceso a SQLite: escenarios, perfil, plan de aporte y aportes extraordinarios |
 | `inflation.py` | Serie del IPC chileno y ventanas de estimación |
-| `afp.py` | Parámetros legales previsionales y proyección del saldo AFP |
-| — | Los escenarios precargados (CFINRENTAS e IPSA) viven en `db.py` |
-| `static/` | Frontend (HTML/CSS/JS vanilla) |
+| `test_stonks.py` | Pruebas del modelo (`make test`) |
+| `static/js/` | Frontend en módulos ES nativos, sin build: `main.js` cablea el DOM, el resto expone funciones |
+| `static/css/` | Hojas por responsabilidad: `base`, `componentes`, `responsive`, `vendor`, `tooltip`, `modal`, `docs` |
 | `static/vendor/` | Chart.js y Grid.js servidos localmente |
+| — | Los escenarios precargados (CFINRENTAS e IPSA) viven en `db.py` |
 
 ## API
 

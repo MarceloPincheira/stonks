@@ -1,0 +1,47 @@
+/** Variables, tipografía y estructura de la página. */
+
+:root {
+  --bg: #0f1216;
+  --panel: #171c23;
+  --panel-2: #1e242d;
+  --line: #2a323d;
+  --text: #e6ebf2;
+  --muted: #93a1b3;
+  --accent: #4ade80;
+  --accent-2: #60a5fa;
+  --danger: #f87171;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+
+body {
+  margin: 0;
+  padding: 0 0 48px;
+  background: var(--bg);
+  color: var(--text);
+  font: 15px/1.5 ui-sans-serif, -apple-system, "Segoe UI", system-ui, sans-serif;
+}
+
+header {
+  padding: 28px 24px 8px;
+  max-width: min(1680px, 96vw);
+  margin: 0 auto;
+}
+header h1 { margin: 0; font-size: 28px; }
+header p { margin: 4px 0 0; color: var(--muted); }
+
+main {
+  max-width: min(1680px, 96vw);
+  margin: 0 auto;
+  padding: 16px 24px;
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  gap: 18px;
+}
+#results-panel { grid-column: 1 / -1; }
+
+@media (max-width: 900px) {
+  main { grid-template-columns: minmax(0, 1fr); }
+}

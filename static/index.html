@@ -5,7 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Stonks · Proyección de inversión</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📈</text></svg>">
-<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/componentes.css">
+<link rel="stylesheet" href="css/responsive.css">
+<link rel="stylesheet" href="css/vendor.css">
+<link rel="stylesheet" href="css/tooltip.css">
+<link rel="stylesheet" href="css/modal.css">
 </head>
 <body>
 <header>
@@ -331,8 +336,9 @@
   </div>
 </div>
 
+<!-- Chart.js y Grid.js son UMD y se exponen como globales: van antes del módulo. -->
 <script src="vendor/chart.umd.min.js"></script>
 <script src="vendor/gridjs.umd.js"></script>
-<script src="app.js"></script>
+<script type="module" src="js/main.js"></script>
 </body>
 </html>

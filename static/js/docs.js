@@ -1,5 +1,6 @@
-/** Página de documentación: sirve los .md del repositorio desde la propia app. */
-const $ = (sel) => document.querySelector(sel);
+/** Página de documentación: muestra los .md del repositorio dentro de la app. */
+import { $ } from "./dom.js";
+import { render as renderMarkdown } from "./markdown.js";
 
 let docs = [];
 let actual = null;

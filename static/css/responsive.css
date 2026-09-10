@@ -1,0 +1,25 @@
+/** Ajustes por ancho de pantalla. */
+
+/* --- responsive ---------------------------------------------------- */
+.table-x { overflow-x: auto; }
+.table-x table { min-width: 460px; }
+input, select { min-width: 0; }
+
+@media (max-width: 620px) {
+  header { padding: 18px 14px 4px; }
+  header h1 { font-size: 23px; }
+  main { padding: 12px 14px; gap: 12px; }
+  .panel { padding: 14px 12px; border-radius: 10px; }
+  .kpis { gap: 8px; }
+  .kpi { flex: 1 1 140px; padding: 10px 11px; }
+  .kpi .v { font-size: 17px; }
+  .kpi .k { min-height: 0; }
+  .grid { grid-template-columns: 1fr; gap: 10px; }
+  .switch { flex-direction: column; align-items: flex-start; gap: 5px; }
+  .actions { gap: 8px; }
+  .actions button { flex: 1 1 auto; }
+  #chart { height: 230px; }
+  .legend { flex-wrap: wrap; gap: 6px 14px; font-size: 12px; }
+  .saved-list li { flex-direction: column; align-items: flex-start; }
+  .table-scroll { max-height: 320px; }
+}
