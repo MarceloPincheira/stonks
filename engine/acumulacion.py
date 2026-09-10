@@ -5,6 +5,7 @@ Dos modelos:
   * 'dividends' -> plusvalía de la cuota + repartos periódicos, con la opción de
                    reinvertirlos o cobrarlos en efectivo.
 """
+
 from __future__ import annotations
 
 from .retiro import _max_spend, _retirement_path
@@ -53,11 +54,14 @@ def project(data: Escenario) -> Resultado:
     recortado = 0
     if hasta is not None and hasta < total_months:
         recortado = sum(1 for a in amounts[hasta:] if a > 0)
-        amounts = amounts[:max(0, hasta)] + [0.0] * (total_months - max(0, hasta))
+        amounts = amounts[: max(0, hasta)] + [0.0] * (total_months - max(0, hasta))
 
     # Deflactar es dividir por (1+i)^t, no restar la inflación.
     inflation_rate = data["inflation"] / 100.0
-    deflator = lambda m: (1 + inflation_rate) ** (m / 12)
+
+    def deflator(m: int) -> float:
+        return (1 + inflation_rate) ** (m / 12)
+
     goal_monthly_today = data["income_goal"]
 
     # Con aportes indexados, el monto escrito es "pesos de hoy": tiene que valer lo
@@ -67,7 +71,8 @@ def project(data: Escenario) -> Resultado:
     # extraordinarios: así el monto escrito vale lo escrito, y los dos campos que la
     # UI etiqueta "pesos de hoy" significan por fin lo mismo.
     index_contributions = data["index_contributions"]
-    def contribution_factor(m):
+
+    def contribution_factor(m: int) -> float:
         return (1 + inflation_rate) ** (m / 12) if index_contributions else 1.0
 
     # Aportes extraordinarios. El monto se escribe en pesos de HOY, así que llevarlo al
@@ -76,18 +81,22 @@ def project(data: Escenario) -> Resultado:
     # signifique el mismo poder adquisitivo que $80 M hoy.
     lump_by_month = {}
     lump_rows = []
-    for l in data["lump_sums"]:
-        m = (l["year"] - data["start_year"]) * 12 + (l["month"] - data["start_month"]) + 1
+    for lump in data["lump_sums"]:
+        m = (lump["year"] - data["start_year"]) * 12 + (lump["month"] - data["start_month"]) + 1
         dentro = 1 <= m <= total_months
-        nominal = l["amount"] * deflator(m) if dentro else None
+        nominal = lump["amount"] * deflator(m) if dentro else None
         if dentro:
             lump_by_month[m] = lump_by_month.get(m, 0.0) + nominal
-        lump_rows.append({
-            "year": l["year"], "month": l["month"], "amount": l["amount"],
-            "projection_month": m if dentro else None,
-            "in_range": dentro,
-            "amount_nominal": round(nominal, 2) if dentro else None,
-        })
+        lump_rows.append(
+            {
+                "year": lump["year"],
+                "month": lump["month"],
+                "amount": lump["amount"],
+                "projection_month": m if dentro else None,
+                "in_range": dentro,
+                "amount_nominal": round(nominal, 2) if dentro else None,
+            }
+        )
 
     # Los repartos son renta afecta: el art. 107 de la LIR exime el mayor valor en la
     # enajenación, pero no las distribuciones periódicas. Se descuentan antes de
@@ -95,20 +104,20 @@ def project(data: Escenario) -> Resultado:
     # infla el resultado a 30 años en decenas de puntos porcentuales.
     tax_rate = data["dividend_tax"] / 100.0 if dividends_on else 0.0
 
-    portfolio = 0.0      # valor de mercado dentro del fondo
-    cash = 0.0           # dividendos cobrados y no reinvertidos
-    invested = 0.0       # aportes de tu bolsillo, sin reinversión
-    reinvested = 0.0     # dividendos que volvieron al fondo
-    dividend_accrual = 0.0       # reparto devengado y aún no pagado
+    portfolio = 0.0  # valor de mercado dentro del fondo
+    cash = 0.0  # dividendos cobrados y no reinvertidos
+    invested = 0.0  # aportes de tu bolsillo, sin reinversión
+    reinvested = 0.0  # dividendos que volvieron al fondo
+    dividend_accrual = 0.0  # reparto devengado y aún no pagado
     accrual_by_month = {}
-    dividends_total = 0.0        # bruto repartido por el fondo
-    dividends_net_total = 0.0    # lo que queda después de impuesto
+    dividends_total = 0.0  # bruto repartido por el fondo
+    dividends_net_total = 0.0  # lo que queda después de impuesto
     dividends_tax_total = 0.0
     dividends_real = 0.0
     months = []
 
-    invested_real = 0.0     # cada aporte llevado a pesos de hoy en su momento
-    reinvested_real = 0.0   # ídem para cada dividendo reinvertido
+    invested_real = 0.0  # cada aporte llevado a pesos de hoy en su momento
+    reinvested_real = 0.0  # ídem para cada dividendo reinvertido
     for m in range(1, total_months + 1):
         lump = lump_by_month.get(m, 0.0)
         contribution = amounts[m - 1] * contribution_factor(m) + lump
@@ -218,8 +227,11 @@ def project(data: Escenario) -> Resultado:
     net_yield = data["dividend_yield"] * (1 - tax_rate)
 
     # Retorno total NETO del instrumento: la plusvalía compone con el reparto neto.
-    total_net = ((1 + growth_pct / 100) * (1 + net_yield / 100) - 1) if dividends_on \
+    total_net = (
+        ((1 + growth_pct / 100) * (1 + net_yield / 100) - 1)
+        if dividends_on
         else data["annual_return"] / 100
+    )
     # Lo máximo que se puede retirar a perpetuidad sin perder poder adquisitivo es el
     # retorno REAL: consumirlo entero deja el capital constante en pesos de hoy.
     sustainable_rate = ((1 + total_net) / (1 + inflation_rate) - 1) * 100
@@ -295,20 +307,25 @@ def project(data: Escenario) -> Resultado:
     )
 
     # el año en que podrías dejar de aportar y vivir de la rentabilidad para siempre
-    fi_year = next(
-        (y["year"] for y in yearly
-         if y["sustainable_coverage"] is not None and y["sustainable_coverage"] >= 100),
-        None,
-    ) if sustainable_rate > 0 else None
+    fi_year = (
+        next(
+            (
+                y["year"]
+                for y in yearly
+                if y["sustainable_coverage"] is not None and y["sustainable_coverage"] >= 100
+            ),
+            None,
+        )
+        if sustainable_rate > 0
+        else None
+    )
     fi_row = next((y for y in yearly if y["year"] == fi_year), None) if fi_year else None
 
     # El capital necesario se mide contra la meta NETA de pensión de ese año.
     ref_row = fi_row or target
     goal_ref = ref_row["goal_from_portfolio"] if ref_row else 0.0
     capital_needed_sustainable = (
-        goal_ref * 12 / (sustainable_rate / 100)
-        if sustainable_rate > 0 and goal_ref > 0
-        else None
+        goal_ref * 12 / (sustainable_rate / 100) if sustainable_rate > 0 and goal_ref > 0 else None
     )
 
     # capital que haría falta para que el yield pague lo que falta ese año
@@ -327,17 +344,21 @@ def project(data: Escenario) -> Resultado:
     retire_to_age = data["retire_to_age"]
     retirement = None
     if start_age > 0 and retire_to_age > start_age and last_contribution:
-        fin = int(round((retire_to_age - start_age) * 12))
+        fin = round((retire_to_age - start_age) * 12)
         inicio = min(last_contribution, fin)
         base = next((mm for mm in months if mm["month"] == inicio), None)
         saldo_inicial = (base["portfolio"] + base["cash"]) if base else 0.0
-        comun = dict(
-            start_month=inicio, portfolio=saldo_inicial, deflator=deflator,
-            monthly_rate=monthly_rate, accrual_rate=accrual_rate * (1 - tax_rate),
-            payout_months=payout_months,
-            accrual0=accrual_by_month.get(inicio, 0.0) * (1 - tax_rate),
-            pension_today=pension_today, pension_start=pension_start,
-        )
+        comun = {
+            "start_month": inicio,
+            "portfolio": saldo_inicial,
+            "deflator": deflator,
+            "monthly_rate": monthly_rate,
+            "accrual_rate": accrual_rate * (1 - tax_rate),
+            "payout_months": payout_months,
+            "accrual0": accrual_by_month.get(inicio, 0.0) * (1 - tax_rate),
+            "pension_today": pension_today,
+            "pension_start": pension_start,
+        }
         # lo máximo que se puede gastar para llegar justo a cero a la edad objetivo
         max_spend = _max_spend(fin, **comun) if fin > inicio else 0.0
         gasto = max_spend if data["spend_mode"] == "target_age" else goal_monthly_today
@@ -359,7 +380,7 @@ def project(data: Escenario) -> Resultado:
             # En años enteros a propósito: con ±1 pp de retorno esta edad se mueve
             # varios años, así que un decimal prometía una precisión que el modelo
             # no tiene. El rango real va en el bloque `sensitivity`.
-            "depletion_age": int(round(start_age + agotado / 12)) if agotado else None,
+            "depletion_age": round(start_age + agotado / 12) if agotado else None,
             "final_balance": round(saldo_final, 2),
             "final_balance_real": round(saldo_final / deflator(fin), 2) if fin else 0.0,
             "months": detalle,
@@ -368,9 +389,11 @@ def project(data: Escenario) -> Resultado:
     # El saldo de la AFP viene en pesos de hoy desde afp.py; al gráfico va en nominales
     # para que se pueda comparar con el patrimonio invertido.
     afp_series = [
-        {"month": i + 1,
-         "balance": None if v is None else round(v * deflator(i + 1), 2),
-         "balance_real": None if v is None else round(v, 2)}
+        {
+            "month": i + 1,
+            "balance": None if v is None else round(v * deflator(i + 1), 2),
+            "balance_real": None if v is None else round(v, 2),
+        }
         for i, v in enumerate(data["afp_monthly"])
     ]
 
@@ -386,8 +409,9 @@ def project(data: Escenario) -> Resultado:
         "include_pension": data["include_pension"],
         "pension_monthly": round(data["pension_monthly"], 2),
         "pension_start_month": data["pension_start_month"],
-        "pension_start_year": (-(-data["pension_start_month"] // 12)
-                               if data["pension_start_month"] else None),
+        "pension_start_year": (
+            -(-data["pension_start_month"] // 12) if data["pension_start_month"] else None
+        ),
         "real_return_pct": round(real_return, 3),
         "target_year": target_year,
         "goal_monthly_at_target": round(goal_at_target, 2),
@@ -403,8 +427,9 @@ def project(data: Escenario) -> Resultado:
         "fi_year": fi_year,
         "fi_capital": fi_row["portfolio"] if fi_row else None,
         "fi_monthly": fi_row["sustainable_monthly"] if fi_row else None,
-        "capital_needed_sustainable": (round(capital_needed_sustainable, 2)
-                                      if capital_needed_sustainable else None),
+        "capital_needed_sustainable": (
+            round(capital_needed_sustainable, 2) if capital_needed_sustainable else None
+        ),
         "capital_needed_at_target": round(capital_needed, 2) if capital_needed else None,
         "final_real_balance": round((portfolio + cash) / deflator(total_months), 2),
         "reinvest": reinvest,

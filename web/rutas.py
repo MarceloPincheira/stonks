@@ -1,19 +1,21 @@
 """Rutas HTTP: API JSON sobre `http.server`, más los archivos de `static/`."""
+
 from __future__ import annotations
 
-from http.server import SimpleHTTPRequestHandler
-from typing import Any
 import json
 import os
 import re
 import sys
+from http.server import SimpleHTTPRequestHandler
+from typing import Any
 
-from .documentos import BASE_DIR, DOCS, DOC_RE
-from .perfil import con_perfil, normalizar_perfil
 import afp
 import db
 import engine
 import inflation
+
+from .documentos import BASE_DIR, DOC_RE, DOCS
+from .perfil import con_perfil, normalizar_perfil
 
 STATIC_DIR = os.path.join(BASE_DIR, "static")
 SCENARIO_RE = re.compile(r"^/api/scenarios/(\d+)$")
@@ -24,7 +26,7 @@ class Handler(SimpleHTTPRequestHandler):
         super().__init__(*args, directory=STATIC_DIR, **kwargs)
 
     def log_message(self, fmt: str, *args: Any) -> None:
-        sys.stderr.write("%s - %s\n" % (self.address_string(), fmt % args))
+        sys.stderr.write(f"{self.address_string()} - {fmt % args}\n")
 
     def end_headers(self) -> None:
         # Sin esta cabecera el navegador aplica caché heurística y se queda
@@ -61,27 +63,35 @@ class Handler(SimpleHTTPRequestHandler):
                     data["afp"] = None
             return self._json(data)
         if self.path == "/api/afp/params":
-            return self._json({
-                "rentabilidad_real": afp.RENTABILIDAD_REAL,
-                "comisiones": afp.COMISIONES,
-                "cotizacion": afp.COTIZACION_OBLIGATORIA,
-                "salud": afp.SALUD,
-                "cesantia": afp.CESANTIA_INDEFINIDO,
-                "tope_uf": afp.TOPE_IMPONIBLE_UF,
-                "aporte_empleador_cuenta": afp.APORTE_EMPLEADOR_CUENTA,
-                "edad_pension": afp.EDAD_PENSION,
-                "tramos": afp.TRAMOS,
-                "generacionales_desde": afp.FONDOS_GENERACIONALES_DESDE,
-                "iusc": afp.IUSC,
-                "utm_referencia": afp.UTM_REFERENCIA,
-                "uf_referencia": afp.UF_REFERENCIA,
-            })
+            return self._json(
+                {
+                    "rentabilidad_real": afp.RENTABILIDAD_REAL,
+                    "comisiones": afp.COMISIONES,
+                    "cotizacion": afp.COTIZACION_OBLIGATORIA,
+                    "salud": afp.SALUD,
+                    "cesantia": afp.CESANTIA_INDEFINIDO,
+                    "tope_uf": afp.TOPE_IMPONIBLE_UF,
+                    "aporte_empleador_cuenta": afp.APORTE_EMPLEADOR_CUENTA,
+                    "edad_pension": afp.EDAD_PENSION,
+                    "tramos": afp.TRAMOS,
+                    "generacionales_desde": afp.FONDOS_GENERACIONALES_DESDE,
+                    "iusc": afp.IUSC,
+                    "utm_referencia": afp.UTM_REFERENCIA,
+                    "uf_referencia": afp.UF_REFERENCIA,
+                }
+            )
         if self.path == "/api/inflation":
-            return self._json({"presets": inflation.presets(), "series": inflation.IPC_CL,
-                               "crises": inflation.CRISES})
+            return self._json(
+                {
+                    "presets": inflation.presets(),
+                    "series": inflation.IPC_CL,
+                    "crises": inflation.CRISES,
+                }
+            )
         if self.path == "/api/docs":
-            return self._json([{"slug": k, "titulo": t, "detalle": d}
-                               for k, (_, t, d) in DOCS.items()])
+            return self._json(
+                [{"slug": k, "titulo": t, "detalle": d} for k, (_, t, d) in DOCS.items()]
+            )
         m = DOC_RE.match(self.path)
         if m:
             entrada = DOCS.get(m.group(1))
@@ -120,7 +130,8 @@ class Handler(SimpleHTTPRequestHandler):
                 lumps = payload.get("lumps")
                 if ranges is not None or lumps is not None:
                     limpio = engine.normalize_input(
-                        {"years": 1, "ranges": ranges or [], "lump_sums": lumps or []})
+                        {"years": 1, "ranges": ranges or [], "lump_sums": lumps or []}
+                    )
                     ranges = limpio["ranges"] if ranges is not None else None
                     lumps = limpio["lump_sums"] if lumps is not None else None
                 data = db.save_profile(perfil, ranges, lumps)
@@ -137,8 +148,13 @@ class Handler(SimpleHTTPRequestHandler):
                 # La proyección es un escenario, no un pronóstico: viaja con el rango
                 # que producen ±1 pp de retorno y ±1 pp de inflación para que la UI
                 # no publique "se agota a los 71" como si fuera una medición.
-                return self._json({"input": data, "result": result,
-                                   "sensitivity": engine.sensitivity(data, result)})
+                return self._json(
+                    {
+                        "input": data,
+                        "result": result,
+                        "sensitivity": engine.sensitivity(data, result),
+                    }
+                )
             if self.path == "/api/scenarios":
                 data = engine.normalize_input(payload)
                 return self._json(db.save_scenario(data), 201)

@@ -6,6 +6,7 @@ un TypedDict de ese tamaño documenta menos de lo que estorba. Los registros chi
 estables sí valen la pena, y van como TypedDict para que el editor avise si falta una
 clave o sobra otra.
 """
+
 from __future__ import annotations
 
 from typing import Any, Callable, TypedDict

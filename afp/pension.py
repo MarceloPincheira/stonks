@@ -1,4 +1,5 @@
 """Conversión del saldo acumulado en pensión: Capital Necesario Unitario."""
+
 from __future__ import annotations
 
 from .parametros import EXPECTATIVA_VIDA, TASA_TECNICA

@@ -19,14 +19,19 @@ FONDOS_GENERACIONALES_DESDE = "2027-04"
 # Comisión sobre la renta imponible. Se descuenta del sueldo pero NO entra a la
 # cuenta individual: es el precio de administración. Conviene verificarla, cambia.
 COMISIONES = {
-    "Uno": 0.49, "Modelo": 0.58, "PlanVital": 1.16, "Habitat": 1.27,
-    "Capital": 1.44, "Cuprum": 1.44, "ProVida": 1.45,
+    "Uno": 0.49,
+    "Modelo": 0.58,
+    "PlanVital": 1.16,
+    "Habitat": 1.27,
+    "Capital": 1.44,
+    "Cuprum": 1.44,
+    "ProVida": 1.45,
 }
 
-COTIZACION_OBLIGATORIA = 10.0   # a la cuenta individual
-SALUD = 7.0                     # FONASA o Isapre (el plan puede costar más)
-CESANTIA_INDEFINIDO = 0.6       # seguro de cesantía, contrato indefinido
-TOPE_IMPONIBLE_UF = 90.0        # tope 2026 para AFP y salud
+COTIZACION_OBLIGATORIA = 10.0  # a la cuenta individual
+SALUD = 7.0  # FONASA o Isapre (el plan puede costar más)
+CESANTIA_INDEFINIDO = 0.6  # seguro de cesantía, contrato indefinido
+TOPE_IMPONIBLE_UF = 90.0  # tope 2026 para AFP y salud
 # El seguro de cesantía se rige por su propio tope, bastante más alto: usar el de la
 # AFP subestima el descuento de quien gana entre 90 y 135,2 UF. (AFC / SP, 2026.)
 TOPE_CESANTIA_UF = 135.2
@@ -47,7 +52,7 @@ EDAD_PENSION = {"hombre": 65, "mujer": 60}
 # la rebaja del 40% es 38,82 -- 0,35*310-23,32 = 0,40*310-38,82 = 85,18 UTM. Cortarlo
 # antes deja la escala continua igual, así que el error no se delata solo.
 IUSC = [
-    (13.5, 0.000, 0.00),      # exento
+    (13.5, 0.000, 0.00),  # exento
     (30.0, 0.040, 0.54),
     (50.0, 0.080, 1.74),
     (70.0, 0.135, 4.49),
@@ -58,8 +63,8 @@ IUSC = [
 ]
 
 # Valores de referencia, editables en el perfil porque cambian todos los meses.
-UTM_REFERENCIA = 71721.0     # septiembre 2026, SII
-UF_REFERENCIA = 40884.32     # 8 de septiembre de 2026, Banco Central
+UTM_REFERENCIA = 71721.0  # septiembre 2026, SII
+UF_REFERENCIA = 40884.32  # 8 de septiembre de 2026, Banco Central
 
 # Asignación por defecto del DL 3.500, art. 23, para quien nunca eligió fondo:
 #   B  hombres y mujeres HASTA los 35
@@ -78,8 +83,8 @@ EDAD_SALIDA_FONDO_A = {"hombre": 56, "mujer": 51}
 # automático para todos: se contrata con la AFP. El traspaso es GRADUAL en cinco
 # etapas de 20% -- 20% al cumplir la edad, y 20% más cada año hasta completar el
 # 100% a los cuatro años. Las cotizaciones nuevas van de inmediato al fondo nuevo.
-ETAPAS_TRASPASO = 4          # años que tarda en completarse
-PASO_ANUAL = 0.20            # fracción del saldo que se mueve cada año
+ETAPAS_TRASPASO = 4  # años que tarda en completarse
+PASO_ANUAL = 0.20  # fracción del saldo que se mueve cada año
 
 HITOS = {
     "basico": {
@@ -98,7 +103,7 @@ HITOS = {
 # ponderando la tasa implícita de las rentas vitalicias del año anterior con la
 # rentabilidad promedio de los fondos de los últimos cinco años. Es una tasa REAL
 # --el sistema opera en UF--, así que calza con proyectar en pesos de hoy.
-TASA_TECNICA = 3.45          # tercer trimestre de 2026, Circular N° 2.417 de la SP
+TASA_TECNICA = 3.45  # tercer trimestre de 2026, Circular N° 2.417 de la SP
 
 # Expectativa de vida a la edad de pensión, tablas de mortalidad 2020 con sus
 # factores de mejoramiento: hombre de 65 vive hasta ~86,6; mujer de 60, hasta ~90,8.

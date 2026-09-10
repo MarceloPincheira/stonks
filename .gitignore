@@ -13,3 +13,8 @@ __pycache__/
 
 # Ruido de macOS
 .DS_Store
+
+# Entorno de las herramientas de desarrollo (black, isort, ruff, pre-commit).
+# La app no lo necesita: corre con la stdlib del Python del sistema.
+.venv/
+.ruff_cache/

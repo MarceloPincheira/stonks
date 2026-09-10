@@ -3,13 +3,14 @@
 
 Las rutas viven en el paquete `web/`; aquí queda sólo cómo se levanta.
 """
+
 from __future__ import annotations
 
-from http.server import HTTPServer
 import os
+from http.server import HTTPServer
 
-from web import Handler
 import db
+from web import Handler
 
 
 def puerto_libre(preferido: int) -> int:

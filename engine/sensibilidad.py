@@ -3,6 +3,7 @@
 La proyección es determinista y publicar una edad de agotamiento sin decir cuánto se
 mueve promete una precisión que el modelo no tiene.
 """
+
 from __future__ import annotations
 
 from .acumulacion import project
@@ -21,7 +22,8 @@ def _variante(data: Escenario, retorno: float = 0.0, inflacion: float = 0.0) -> 
     if data["model"] == "dividends":
         d["appreciation"] = data["appreciation"] + retorno
         d["annual_return"] = (
-            (1 + d["appreciation"] / 100) * (1 + d["dividend_yield"] / 100) - 1) * 100
+            (1 + d["appreciation"] / 100) * (1 + d["dividend_yield"] / 100) - 1
+        ) * 100
     else:
         d["annual_return"] = data["annual_return"] + retorno
     return d

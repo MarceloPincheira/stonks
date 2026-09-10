@@ -1,13 +1,15 @@
 """Capa de acceso a SQLite para los escenarios de inversión."""
+
 from __future__ import annotations
 
-from typing import Any, Iterable
+import contextlib
 import os
 import sqlite3
+from typing import Any
 
-from engine.tipos import AporteExtraordinario, Escenario, Perfil, Tramo
 import afp
 import engine
+from engine.tipos import AporteExtraordinario, Escenario, Perfil, Tramo
 
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "stonks.db")
 
@@ -82,18 +84,18 @@ CREATE TABLE IF NOT EXISTS app_meta (
 
 # Columnas agregadas después de la v1; se aplican con ALTER TABLE idempotente.
 MIGRATIONS = [
-    ("model", "TEXT NOT NULL DEFAULT 'simple'"),       # 'simple' | 'dividends'
-    ("dividend_yield", "REAL NOT NULL DEFAULT 0"),      # % anual sobre el valor del portafolio
-    ("appreciation", "REAL NOT NULL DEFAULT 0"),        # % anual de plusvalía de la cuota
-    ("reinvest", "INTEGER NOT NULL DEFAULT 1"),         # 1 = reinvierte dividendos
+    ("model", "TEXT NOT NULL DEFAULT 'simple'"),  # 'simple' | 'dividends'
+    ("dividend_yield", "REAL NOT NULL DEFAULT 0"),  # % anual sobre el valor del portafolio
+    ("appreciation", "REAL NOT NULL DEFAULT 0"),  # % anual de plusvalía de la cuota
+    ("reinvest", "INTEGER NOT NULL DEFAULT 1"),  # 1 = reinvierte dividendos
     ("payout_months", "TEXT NOT NULL DEFAULT '3,6,9,12'"),
-    ("inflation", "REAL NOT NULL DEFAULT 3.83"),      # media geométrica 2000-2025
-    ("income_goal", "REAL NOT NULL DEFAULT 0"),        # meta mensual en pesos de hoy
+    ("inflation", "REAL NOT NULL DEFAULT 3.83"),  # media geométrica 2000-2025
+    ("income_goal", "REAL NOT NULL DEFAULT 0"),  # meta mensual en pesos de hoy
     ("index_contributions", "INTEGER NOT NULL DEFAULT 0"),
-    ("include_pension", "INTEGER NOT NULL DEFAULT 1"),   # descontar la pensión AFP de la meta
-    ("retire_to_age", "REAL NOT NULL DEFAULT 0"),        # 0 = usar la expectativa de vida
-    ("spend_mode", "TEXT NOT NULL DEFAULT 'goal'"),      # 'goal' | 'target_age'
-    ("work_until_age", "REAL NOT NULL DEFAULT 0"),       # 0 = hasta la edad de pensión
+    ("include_pension", "INTEGER NOT NULL DEFAULT 1"),  # descontar la pensión AFP de la meta
+    ("retire_to_age", "REAL NOT NULL DEFAULT 0"),  # 0 = usar la expectativa de vida
+    ("spend_mode", "TEXT NOT NULL DEFAULT 'goal'"),  # 'goal' | 'target_age'
+    ("work_until_age", "REAL NOT NULL DEFAULT 0"),  # 0 = hasta la edad de pensión
     # % efectivo que se lleva el impuesto de cada reparto antes de reinvertirlo. 0 por
     # defecto porque depende del tramo de cada uno, pero se declara: reinvertir el
     # bruto sin decirlo inflaba el resultado a 30 años en decenas de puntos.
@@ -107,7 +109,7 @@ PROFILE_MIGRATIONS = [
     # imponible (la que cotiza) y las asignaciones no imponibles.
     ("sueldo_imponible", "REAL NOT NULL DEFAULT 0"),
     ("no_imponible", "REAL NOT NULL DEFAULT 0"),
-    ("utm", "REAL NOT NULL DEFAULT 71721"),        # septiembre 2026; se edita en el perfil
+    ("utm", "REAL NOT NULL DEFAULT 71721"),  # septiembre 2026; se edita en el perfil
     ("trayectoria", "TEXT NOT NULL DEFAULT 'fijo'"),
     ("destino_salida_a", "TEXT NOT NULL DEFAULT 'B'"),
 ]
@@ -139,13 +141,17 @@ def init() -> None:
         # viva para siempre (save_profile no la escribe) y resucitaba en cada arranque
         # pisando un imponible que el usuario había puesto en 0 a propósito.
         migrada = conn.execute(
-            "SELECT value FROM app_meta WHERE key = 'migrado_sueldo_bruto'").fetchone()
+            "SELECT value FROM app_meta WHERE key = 'migrado_sueldo_bruto'"
+        ).fetchone()
         if not migrada:
-            conn.execute("UPDATE profile SET sueldo_imponible = sueldo_bruto "
-                         "WHERE sueldo_imponible = 0 AND sueldo_bruto > 0")
+            conn.execute(
+                "UPDATE profile SET sueldo_imponible = sueldo_bruto "
+                "WHERE sueldo_imponible = 0 AND sueldo_bruto > 0"
+            )
             conn.execute("UPDATE profile SET sueldo_bruto = 0")
-            conn.execute("INSERT INTO app_meta (key, value) VALUES "
-                         "('migrado_sueldo_bruto', '1')")
+            conn.execute(
+                "INSERT INTO app_meta (key, value) VALUES " "('migrado_sueldo_bruto', '1')"
+            )
     seed_examples()
 
 
@@ -185,17 +191,29 @@ def get_scenario(scenario_id: int) -> Escenario | None:
 
 def _values(data: Escenario) -> tuple[Any, ...]:
     return (
-        data["name"], data["annual_return"], data["years"], data["currency"],
-        data["model"], data["dividend_yield"], data["appreciation"],
-        1 if data["reinvest"] else 0, ",".join(str(m) for m in data["payout_months"]),
-        data["inflation"], data["income_goal"], 1 if data["index_contributions"] else 0,
-        1 if data["include_pension"] else 0, data["retire_to_age"], data["spend_mode"],
-        data["work_until_age"], data["dividend_tax"],
+        data["name"],
+        data["annual_return"],
+        data["years"],
+        data["currency"],
+        data["model"],
+        data["dividend_yield"],
+        data["appreciation"],
+        1 if data["reinvest"] else 0,
+        ",".join(str(m) for m in data["payout_months"]),
+        data["inflation"],
+        data["income_goal"],
+        1 if data["index_contributions"] else 0,
+        1 if data["include_pension"] else 0,
+        data["retire_to_age"],
+        data["spend_mode"],
+        data["work_until_age"],
+        data["dividend_tax"],
     )
 
 
-def _save_scenario(conn: sqlite3.Connection, data: Escenario,
-                   scenario_id: int | None = None) -> int | None:
+def _save_scenario(
+    conn: sqlite3.Connection, data: Escenario, scenario_id: int | None = None
+) -> int | None:
     """Inserta o actualiza dentro de una transacción ya abierta. Devuelve el id."""
     if scenario_id is None:
         placeholders = ", ".join("?" * len(SCENARIO_COLUMNS.split(",")))
@@ -208,7 +226,7 @@ def _save_scenario(conn: sqlite3.Connection, data: Escenario,
         assignments = ", ".join(f"{c.strip()} = ?" for c in SCENARIO_COLUMNS.split(","))
         cur = conn.execute(
             f"UPDATE scenario SET {assignments}, updated_at = datetime('now') WHERE id = ?",
-            _values(data) + (scenario_id,),
+            (*_values(data), scenario_id),
         )
         if cur.rowcount == 0:
             return None
@@ -242,7 +260,7 @@ def delete_scenario(scenario_id: int) -> bool:
 
 CFINRENTAS = {
     "name": "CFINRENTAS · Independencia Rentas Inmobiliarias",
-    "annual_return": 8.95,       # (1+2,3%)(1+6,5%)-1, recalculado por el motor
+    "annual_return": 8.95,  # (1+2,3%)(1+6,5%)-1, recalculado por el motor
     "years": 30,
     "currency": "CLP",
     "model": "dividends",
@@ -272,7 +290,7 @@ CFINRENTAS = {
 # provisorios en septiembre y diciembre, que es el calendario típico chileno.
 IPSA = {
     "name": "IPSA · Bolsa de Santiago",
-    "annual_return": 9.21,       # 3,5% dividendos + 5,71% plusvalía
+    "annual_return": 9.21,  # 3,5% dividendos + 5,71% plusvalía
     "years": 30,
     "currency": "CLP",
     "model": "dividends",
@@ -307,19 +325,20 @@ def seed_examples() -> None:
     for key, scenario in SEEDS:
         try:
             with connect() as conn:
-                done = conn.execute(
-                    "SELECT value FROM app_meta WHERE key = ?", (key,)).fetchone()
+                done = conn.execute("SELECT value FROM app_meta WHERE key = ?", (key,)).fetchone()
                 if done:
                     continue
                 _save_scenario(conn, engine.normalize_input(scenario))
                 conn.execute("INSERT INTO app_meta (key, value) VALUES (?, '1')", (key,))
-        except Exception as exc:                      # noqa: BLE001
+        except Exception as exc:
             # Un ejemplo malo no puede impedir que la app arranque: se avisa y se
             # sigue. Como la marca va en la misma transacción, el intento se
             # reintenta en el próximo arranque en vez de perderse en silencio.
             import sys
-            print(f"  Aviso: no pude sembrar el escenario de ejemplo '{key}': {exc}",
-                  file=sys.stderr)
+
+            print(
+                f"  Aviso: no pude sembrar el escenario de ejemplo '{key}': {exc}", file=sys.stderr
+            )
 
 
 # --- perfil ---------------------------------------------------------------
@@ -342,10 +361,10 @@ def get_profile() -> dict[str, Any]:
             # la pensión en 18%. La fecha de nacimiento sí es un dato estable, así que
             # la edad se deriva de ella cada vez que se lee.
             if profile.get("nacimiento"):
-                try:
+                # Una fecha corrupta no debe impedir leer el resto del perfil: se deja la
+                # edad guardada, que es lo único que se pierde.
+                with contextlib.suppress(ValueError, IndexError, AttributeError):
                     profile["edad"] = afp.edad_desde(profile["nacimiento"])
-                except (ValueError, IndexError, AttributeError):
-                    pass
         ranges = conn.execute(
             "SELECT start_month, end_month, amount FROM profile_range "
             "ORDER BY position, start_month"
@@ -353,12 +372,18 @@ def get_profile() -> dict[str, Any]:
         lumps = conn.execute(
             "SELECT year, month, amount, label FROM profile_lump ORDER BY year, month, position"
         ).fetchall()
-    return {"profile": profile, "ranges": [dict(r) for r in ranges],
-            "lumps": [dict(l) for l in lumps]}
+    return {
+        "profile": profile,
+        "ranges": [dict(r) for r in ranges],
+        "lumps": [dict(lump) for lump in lumps],
+    }
 
 
-def save_profile(data: Perfil, ranges: list[Tramo] | None = None,
-                 lumps: list[AporteExtraordinario] | None = None) -> dict[str, Any]:
+def save_profile(
+    data: Perfil,
+    ranges: list[Tramo] | None = None,
+    lumps: list[AporteExtraordinario] | None = None,
+) -> dict[str, Any]:
     cols = [c.strip() for c in PROFILE_COLUMNS.split(",")]
     values = [data[c] if c != "contrato_indefinido" else (1 if data[c] else 0) for c in cols]
     with connect() as conn:
@@ -382,7 +407,9 @@ def save_profile(data: Perfil, ranges: list[Tramo] | None = None,
             conn.executemany(
                 "INSERT INTO profile_lump (year, month, amount, label, position) "
                 "VALUES (?, ?, ?, ?, ?)",
-                [(l["year"], l["month"], l["amount"], l.get("label", ""), i)
-                 for i, l in enumerate(lumps)],
+                [
+                    (lump["year"], lump["month"], lump["amount"], lump.get("label", ""), i)
+                    for i, lump in enumerate(lumps)
+                ],
             )
     return get_profile()

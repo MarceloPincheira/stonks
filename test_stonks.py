@@ -7,6 +7,7 @@ Cada prueba apunta a un invariante de MODELO.md §12 o a un hallazgo de AUDITORI
 de modo que una regresión vuelva a fallar exactamente donde se detectó. Las que tocan
 la base usan un archivo temporal: ninguna prueba escribe en `stonks.db`.
 """
+
 import os
 import sqlite3
 import tempfile
@@ -17,27 +18,50 @@ import afp
 import engine
 import inflation
 
-
 # --- ayudas ---------------------------------------------------------------
+
 
 def escenario(**kw):
     """Escenario de dividendos con valores por defecto razonables."""
-    base = dict(name="t", years=30, currency="CLP", model="dividends",
-                appreciation=5.71, dividend_yield=3.5, dividend_tax=0.0,
-                reinvest=True, payout_months=[4, 5, 9, 12], inflation=3.83,
-                income_goal=2000000, index_contributions=True,
-                ranges=[{"start_month": 1, "end_month": 360, "amount": 300000}])
+    base = {
+        "name": "t",
+        "years": 30,
+        "currency": "CLP",
+        "model": "dividends",
+        "appreciation": 5.71,
+        "dividend_yield": 3.5,
+        "dividend_tax": 0.0,
+        "reinvest": True,
+        "payout_months": [4, 5, 9, 12],
+        "inflation": 3.83,
+        "income_goal": 2000000,
+        "index_contributions": True,
+        "ranges": [{"start_month": 1, "end_month": 360, "amount": 300000}],
+    }
     base.update(kw)
     return engine.project(engine.normalize_input(base))
 
 
-PERFIL = dict(
-    nacimiento="1990-05-15", sexo="hombre", inicio_mes=1, inicio_anio=2026,
-    sueldo_imponible=2500000, no_imponible=0, afp="Habitat", comision_afp=1.27,
-    fondo="B", saldo_afp=45000000, salud="fonasa", salud_extra=0,
-    contrato_indefinido=True, aporte_empleador=0.1, uf=40884.32, utm=71721,
-    trayectoria="fijo", destino_salida_a="B",
-)
+PERFIL = {
+    "nacimiento": "1990-05-15",
+    "sexo": "hombre",
+    "inicio_mes": 1,
+    "inicio_anio": 2026,
+    "sueldo_imponible": 2500000,
+    "no_imponible": 0,
+    "afp": "Habitat",
+    "comision_afp": 1.27,
+    "fondo": "B",
+    "saldo_afp": 45000000,
+    "salud": "fonasa",
+    "salud_extra": 0,
+    "contrato_indefinido": True,
+    "aporte_empleador": 0.1,
+    "uf": 40884.32,
+    "utm": 71721,
+    "trayectoria": "fijo",
+    "destino_salida_a": "B",
+}
 
 
 def perfil(**kw):
@@ -48,12 +72,12 @@ def perfil(**kw):
 
 # --- conversión de tasas --------------------------------------------------
 
+
 class TestConversionDeTasas(unittest.TestCase):
     """MODELO.md §3.1 — toda conversión anual→mensual es geométrica, no lineal."""
 
     def test_tasa_mensual_es_geometrica(self):
-        r = escenario(model="simple", annual_return=5.71, dividend_yield=0,
-                      payout_months=[12])
+        r = escenario(model="simple", annual_return=5.71, dividend_yield=0, payout_months=[12])
         esperado = ((1 + 0.0571) ** (1 / 12) - 1) * 100
         self.assertAlmostEqual(r["monthly_rate_pct"], round(esperado, 6), places=6)
         self.assertNotAlmostEqual(r["monthly_rate_pct"], 5.71 / 12, places=4)
@@ -66,13 +90,21 @@ class TestConversionDeTasas(unittest.TestCase):
 
     def test_retorno_total_compone_no_suma(self):
         """AUDITORIA #11 — declararlo como g+y quedaba bajo lo que el motor entrega."""
-        d = engine.normalize_input(dict(years=30, model="dividends", appreciation=5.71,
-                                        dividend_yield=3.5, ranges=[]))
+        d = engine.normalize_input(
+            {
+                "years": 30,
+                "model": "dividends",
+                "appreciation": 5.71,
+                "dividend_yield": 3.5,
+                "ranges": [],
+            }
+        )
         self.assertAlmostEqual(d["annual_return"], ((1.0571 * 1.035) - 1) * 100, places=6)
         self.assertNotAlmostEqual(d["annual_return"], 5.71 + 3.5, places=2)
 
 
 # --- aportes --------------------------------------------------------------
+
 
 class TestAportes(unittest.TestCase):
 
@@ -81,8 +113,9 @@ class TestAportes(unittest.TestCase):
         r = escenario(index_contributions=True)
         for m in (1, 6, 12, 13, 120, 360):
             real = r["months"][m - 1]["contribution"] / (1.0383 ** (m / 12))
-            self.assertAlmostEqual(real, 300000, delta=1,
-                                   msg=f"mes {m}: el aporte no vale lo escrito")
+            self.assertAlmostEqual(
+                real, 300000, delta=1, msg=f"mes {m}: el aporte no vale lo escrito"
+            )
 
     def test_aporte_nominal_no_se_indexa(self):
         r = escenario(index_contributions=False)
@@ -91,24 +124,38 @@ class TestAportes(unittest.TestCase):
 
     def test_aporte_extraordinario_ida_y_vuelta(self):
         """El monto se escribe en pesos de hoy y al deflactar vuelve exacto."""
-        r = escenario(years=30, start_year=2026, start_month=1,
-                      lump_sums=[{"year": 2030, "month": 6, "amount": 10_000_000}])
-        l = r["lump_sums"][0]
-        self.assertTrue(l["in_range"])
-        self.assertEqual(l["projection_month"], (2030 - 2026) * 12 + (6 - 1) + 1)
+        r = escenario(
+            years=30,
+            start_year=2026,
+            start_month=1,
+            lump_sums=[{"year": 2030, "month": 6, "amount": 10_000_000}],
+        )
+        lump = r["lump_sums"][0]
+        self.assertTrue(lump["in_range"])
+        self.assertEqual(lump["projection_month"], (2030 - 2026) * 12 + (6 - 1) + 1)
         self.assertAlmostEqual(
-            l["amount_nominal"] / (1.0383 ** (l["projection_month"] / 12)), 10_000_000, delta=1)
+            lump["amount_nominal"] / (1.0383 ** (lump["projection_month"] / 12)),
+            10_000_000,
+            delta=1,
+        )
         self.assertAlmostEqual(r["total_invested_real"], 360 * 300000 + 10_000_000, delta=2)
 
     def test_tramos_solapados_se_rechazan(self):
         with self.assertRaises(engine.ValidationError):
-            engine.normalize_input(dict(years=10, ranges=[
-                {"start_month": 1, "end_month": 60, "amount": 100},
-                {"start_month": 50, "end_month": 80, "amount": 200}]))
+            engine.normalize_input(
+                {
+                    "years": 10,
+                    "ranges": [
+                        {"start_month": 1, "end_month": 60, "amount": 100},
+                        {"start_month": 50, "end_month": 80, "amount": 200},
+                    ],
+                }
+            )
 
     def test_tramo_se_recorta_al_horizonte(self):
         tabla = engine.monthly_amount_table(
-            [{"start_month": 1, "end_month": 600, "amount": 100}], 12)
+            [{"start_month": 1, "end_month": 600, "amount": 100}], 12
+        )
         self.assertEqual(len(tabla), 12)
         self.assertTrue(all(a == 100 for a in tabla))
 
@@ -120,6 +167,7 @@ class TestAportes(unittest.TestCase):
 
 
 # --- identidades contables ------------------------------------------------
+
 
 class TestIdentidadesContables(unittest.TestCase):
     """MODELO.md §5.5 y §12 — invariantes que deben cerrar siempre."""
@@ -133,28 +181,36 @@ class TestIdentidadesContables(unittest.TestCase):
         for r in self._casos():
             m = r["months"][-1]
             self.assertAlmostEqual(
-                m["capital_gain"], m["portfolio"] - (m["invested"] + m["reinvested_total"]),
-                delta=0.02)
+                m["capital_gain"],
+                m["portfolio"] - (m["invested"] + m["reinvested_total"]),
+                delta=0.02,
+            )
 
     def test_V2_ganancia_es_repartos_netos_mas_plusvalia(self):
         for r in self._casos():
             self.assertAlmostEqual(
-                r["total_gain"], r["total_dividends_net"] + r["total_capital_gain"], delta=0.02)
+                r["total_gain"], r["total_dividends_net"] + r["total_capital_gain"], delta=0.02
+            )
 
     def test_V3_ganancia_real(self):
         for r in self._casos():
             self.assertAlmostEqual(
-                r["total_gain_real"], r["final_real_balance"] - r["total_invested_real"],
-                delta=0.05)
+                r["total_gain_real"],
+                r["final_real_balance"] - r["total_invested_real"],
+                delta=0.05,
+            )
 
     def test_V10_neto_mas_impuesto_es_el_bruto(self):
         for r in self._casos():
             self.assertAlmostEqual(
-                r["total_dividends_net"] + r["total_dividends_tax"], r["total_dividends"],
-                delta=0.02)
+                r["total_dividends_net"] + r["total_dividends_tax"],
+                r["total_dividends"],
+                delta=0.02,
+            )
 
 
 # --- repartos e impuesto --------------------------------------------------
+
 
 class TestRepartos(unittest.TestCase):
 
@@ -163,46 +219,79 @@ class TestRepartos(unittest.TestCase):
         libre = escenario(dividend_tax=0)
         gravado = escenario(dividend_tax=23)
         self.assertLess(gravado["final_balance"], libre["final_balance"])
-        self.assertAlmostEqual(gravado["total_dividends_tax"],
-                               gravado["total_dividends"] * 0.23, delta=1)
+        self.assertAlmostEqual(
+            gravado["total_dividends_tax"], gravado["total_dividends"] * 0.23, delta=1
+        )
         self.assertEqual(libre["total_dividends_tax"], 0)
 
     def test_impuesto_fuera_de_rango_se_rechaza(self):
         for t in (-1, 101):
             with self.assertRaises(engine.ValidationError):
-                engine.normalize_input(dict(years=10, model="dividends", appreciation=3,
-                                            dividend_yield=5, dividend_tax=t, ranges=[]))
+                engine.normalize_input(
+                    {
+                        "years": 10,
+                        "model": "dividends",
+                        "appreciation": 3,
+                        "dividend_yield": 5,
+                        "dividend_tax": t,
+                        "ranges": [],
+                    }
+                )
 
     def test_el_reparto_se_devenga_por_mes_tenido(self):
         """AUDITORIA #8 — el reparto se devenga yield/12 al mes, no es una fracción del
         valor en la fecha de pago. Un aporte que entra en el mes de pago devenga UN mes,
         no un trimestre completo."""
-        un_mes = escenario(years=1, appreciation=0.0, dividend_yield=4.0, payout_months=[1],
-                           inflation=0, index_contributions=False,
-                           ranges=[{"start_month": 1, "end_month": 1, "amount": 1_000_000}])
+        un_mes = escenario(
+            years=1,
+            appreciation=0.0,
+            dividend_yield=4.0,
+            payout_months=[1],
+            inflation=0,
+            index_contributions=False,
+            ranges=[{"start_month": 1, "end_month": 1, "amount": 1_000_000}],
+        )
         self.assertAlmostEqual(un_mes["total_dividends"], 1_000_000 * 0.04 / 12, delta=1)
 
-        dos_meses = escenario(years=1, appreciation=0.0, dividend_yield=4.0, payout_months=[2],
-                              inflation=0, index_contributions=False,
-                              ranges=[{"start_month": 1, "end_month": 1, "amount": 1_000_000}])
+        dos_meses = escenario(
+            years=1,
+            appreciation=0.0,
+            dividend_yield=4.0,
+            payout_months=[2],
+            inflation=0,
+            index_contributions=False,
+            ranges=[{"start_month": 1, "end_month": 1, "amount": 1_000_000}],
+        )
         self.assertAlmostEqual(dos_meses["total_dividends"], 2 * 1_000_000 * 0.04 / 12, delta=1)
 
     def test_el_calendario_de_pagos_no_altera_lo_devengado(self):
         """Con devengo, lo repartido depende del valor del fondo y del yield, no de en
         cuántas fechas se pague. Se compara sin reinversión para aislar el devengo del
         efecto de componer antes (con reinversión, pagar más seguido sí compone más)."""
-        com = dict(years=10, appreciation=0.0, dividend_yield=6.0, inflation=0,
-                   index_contributions=False, reinvest=False,
-                   ranges=[{"start_month": 1, "end_month": 12, "amount": 1_000_000}])
+        com = {
+            "years": 10,
+            "appreciation": 0.0,
+            "dividend_yield": 6.0,
+            "inflation": 0,
+            "index_contributions": False,
+            "reinvest": False,
+            "ranges": [{"start_month": 1, "end_month": 12, "amount": 1_000_000}],
+        }
         uno = escenario(**com, payout_months=[12])
         doce = escenario(**com, payout_months=list(range(1, 13)))
         self.assertAlmostEqual(uno["total_dividends"], doce["total_dividends"], delta=1)
 
     def test_reinvertir_mas_seguido_compone_mas(self):
         """La contracara: con reinversión, pagar mensual compone más que pagar una vez."""
-        com = dict(years=10, appreciation=0.0, dividend_yield=6.0, inflation=0,
-                   index_contributions=False, reinvest=True,
-                   ranges=[{"start_month": 1, "end_month": 12, "amount": 1_000_000}])
+        com = {
+            "years": 10,
+            "appreciation": 0.0,
+            "dividend_yield": 6.0,
+            "inflation": 0,
+            "index_contributions": False,
+            "reinvest": True,
+            "ranges": [{"start_month": 1, "end_month": 12, "amount": 1_000_000}],
+        }
         uno = escenario(**com, payout_months=[12])
         doce = escenario(**com, payout_months=list(range(1, 13)))
         self.assertGreater(doce["final_balance"], uno["final_balance"])
@@ -211,31 +300,56 @@ class TestRepartos(unittest.TestCase):
         """Invariante fuerte: invertir más tarde nunca rinde más, y el costo marginal de
         atrasarse un mes es uniforme. Antes había un salto de 7x en los meses de pago —
         primero a favor (cobraba el reparto entero) y luego en contra (lo perdía)."""
-        com = dict(years=20, appreciation=5.71, dividend_yield=3.5,
-                   payout_months=[4, 5, 9, 12], start_year=2026, start_month=1,
-                   index_contributions=False, income_goal=0,
-                   ranges=[{"start_month": 1, "end_month": 240, "amount": 150000}])
-        finales = [escenario(**com, lump_sums=[{"year": 2026, "month": mes,
-                                                "amount": 50_000_000}])["final_balance"]
-                   for mes in range(1, 13)]
+        com = {
+            "years": 20,
+            "appreciation": 5.71,
+            "dividend_yield": 3.5,
+            "payout_months": [4, 5, 9, 12],
+            "start_year": 2026,
+            "start_month": 1,
+            "index_contributions": False,
+            "income_goal": 0,
+            "ranges": [{"start_month": 1, "end_month": 240, "amount": 150000}],
+        }
+        finales = [
+            escenario(**com, lump_sums=[{"year": 2026, "month": mes, "amount": 50_000_000}])[
+                "final_balance"
+            ]
+            for mes in range(1, 13)
+        ]
         for k in range(1, 12):
-            self.assertLess(finales[k], finales[k - 1],
-                            f"invertir en el mes {k + 1} rinde más que en el {k}")
+            self.assertLess(
+                finales[k], finales[k - 1], f"invertir en el mes {k + 1} rinde más que en el {k}"
+            )
         saltos = [finales[k - 1] - finales[k] for k in range(1, 12)]
-        self.assertLess(max(saltos) / min(saltos), 1.15,
-                        "el mes de pago sigue produciendo un salto en el resultado")
+        self.assertLess(
+            max(saltos) / min(saltos),
+            1.15,
+            "el mes de pago sigue produciendo un salto en el resultado",
+        )
 
 
 # --- retiro sostenible ----------------------------------------------------
+
 
 class TestRetiroSostenible(unittest.TestCase):
     """AUDITORIA post-#7 — el retiro sostenible es el retorno REAL en ambos modelos."""
 
     def test_los_dos_modelos_coinciden_en_el_mismo_instrumento(self):
-        com = dict(years=40, inflation=3.83, income_goal=2000000, index_contributions=True,
-                   ranges=[{"start_month": 1, "end_month": 480, "amount": 400000}])
-        d = escenario(**com, appreciation=5.71, dividend_yield=3.5, dividend_tax=0,
-                      payout_months=[4, 5, 9, 12])
+        com = {
+            "years": 40,
+            "inflation": 3.83,
+            "income_goal": 2000000,
+            "index_contributions": True,
+            "ranges": [{"start_month": 1, "end_month": 480, "amount": 400000}],
+        }
+        d = escenario(
+            **com,
+            appreciation=5.71,
+            dividend_yield=3.5,
+            dividend_tax=0,
+            payout_months=[4, 5, 9, 12],
+        )
         s = escenario(**com, model="simple", annual_return=(1.0571 * 1.035 - 1) * 100)
         self.assertAlmostEqual(d["sustainable_rate"], s["sustainable_rate"], places=2)
         self.assertEqual(d["fi_year"], s["fi_year"])
@@ -266,10 +380,10 @@ class TestRetiroSostenible(unittest.TestCase):
     def test_consumir_la_tasa_sostenible_mantiene_el_capital_real(self):
         """Simulación directa: retirar la tasa sostenible deja el capital real intacto."""
         g, y, i = 0.03, 0.065, 0.0383
-        sost = ((1 + g) * (1 + y) / (1 + i) - 1)
+        sost = (1 + g) * (1 + y) / (1 + i) - 1
         V, mr, per = 100.0, (1 + g) ** (1 / 12) - 1, y / 4
         for m in range(1, 361):
-            V *= (1 + mr)
+            V *= 1 + mr
             if m % 3 == 0:
                 V += V * per - V * sost / 4
         self.assertAlmostEqual(V / ((1 + i) ** 30), 100.0, delta=6)
@@ -277,14 +391,20 @@ class TestRetiroSostenible(unittest.TestCase):
 
 # --- fase de retiro -------------------------------------------------------
 
+
 class TestFaseDeRetiro(unittest.TestCase):
 
     def _comun(self, portfolio=120_000_000, tasa=6.0, infl=3.83, pension=0.0):
-        return dict(start_month=0, portfolio=portfolio,
-                    deflator=lambda m: (1 + infl / 100) ** (m / 12),
-                    monthly_rate=(1 + tasa / 100) ** (1 / 12) - 1,
-                    accrual_rate=0.0, payout_months=[], pension_today=pension,
-                    pension_start=1 if pension else None)
+        return {
+            "start_month": 0,
+            "portfolio": portfolio,
+            "deflator": lambda m: (1 + infl / 100) ** (m / 12),
+            "monthly_rate": (1 + tasa / 100) ** (1 / 12) - 1,
+            "accrual_rate": 0.0,
+            "payout_months": [],
+            "pension_today": pension,
+            "pension_start": 1 if pension else None,
+        }
 
     def test_max_spend_acota_en_horizonte_corto(self):
         """AUDITORIA #7 — el techo V/12 no acotaba y devolvía un máximo falso."""
@@ -292,8 +412,9 @@ class TestFaseDeRetiro(unittest.TestCase):
             kw = self._comun()
             ms = engine._max_spend(meses, **kw)
             sobra = engine._retirement_path(ms * 1.05, end_month=meses, **kw)[2]
-            self.assertLessEqual(sobra, 1.0,
-                                 f"con {meses} meses, gastar 5% más del máximo deja saldo")
+            self.assertLessEqual(
+                sobra, 1.0, f"con {meses} meses, gastar 5% más del máximo deja saldo"
+            )
 
     def test_max_spend_agota_justo(self):
         kw = self._comun()
@@ -310,16 +431,26 @@ class TestFaseDeRetiro(unittest.TestCase):
 
     def test_la_edad_de_agotamiento_va_en_anios_enteros(self):
         """AUDITORIA #5 — un decimal prometía precisión que el modelo no tiene."""
-        r = escenario(years=40, income_goal=2500000, start_age=36.3, life_age=86.6,
-                      retire_to_age=86.6, work_until_age=65, work_until_month=344,
-                      spend_mode="goal", pension_monthly=700000, pension_start_month=353,
-                      include_pension=True,
-                      ranges=[{"start_month": 1, "end_month": 344, "amount": 150000}])
+        r = escenario(
+            years=40,
+            income_goal=2500000,
+            start_age=36.3,
+            life_age=86.6,
+            retire_to_age=86.6,
+            work_until_age=65,
+            work_until_month=344,
+            spend_mode="goal",
+            pension_monthly=700000,
+            pension_start_month=353,
+            include_pension=True,
+            ranges=[{"start_month": 1, "end_month": 344, "amount": 150000}],
+        )
         edad = r["retirement"]["depletion_age"]
         self.assertIsInstance(edad, int)
 
 
 # --- previsional ----------------------------------------------------------
+
 
 class TestImpuestoUnico(unittest.TestCase):
     """AUDITORIA #2 — el tramo del 35% llega a 310 UTM, no a 150."""
@@ -327,12 +458,22 @@ class TestImpuestoUnico(unittest.TestCase):
     UTM = 71721.0
 
     def test_coincide_con_la_tabla_del_sii(self):
-        for utm_base, esperado in ((13.5, 0), (30, 47336), (90, 685653), (120, 1339748),
-                                   (150, 2092819), (200, 3347936), (310, 6109195),
-                                   (600, 14428831)):
+        for utm_base, esperado in (
+            (13.5, 0),
+            (30, 47336),
+            (90, 685653),
+            (120, 1339748),
+            (150, 2092819),
+            (200, 3347936),
+            (310, 6109195),
+            (600, 14428831),
+        ):
             self.assertAlmostEqual(
-                afp.impuesto_unico(utm_base * self.UTM, self.UTM), esperado, delta=1,
-                msg=f"{utm_base} UTM")
+                afp.impuesto_unico(utm_base * self.UTM, self.UTM),
+                esperado,
+                delta=1,
+                msg=f"{utm_base} UTM",
+            )
 
     def test_la_escala_es_continua_en_cada_corte(self):
         for k in range(len(afp.IUSC) - 1):
@@ -359,8 +500,9 @@ class TestCotizaciones(unittest.TestCase):
         a = afp.proyectar(perfil(sueldo_imponible=5_000_000))
         self.assertAlmostEqual(a["descuentos"]["cesantia"], 5_000_000 * 0.006, delta=1)
         b = afp.proyectar(perfil(sueldo_imponible=8_000_000))
-        self.assertAlmostEqual(b["descuentos"]["cesantia"],
-                               afp.TOPE_CESANTIA_UF * uf * 0.006, delta=1)
+        self.assertAlmostEqual(
+            b["descuentos"]["cesantia"], afp.TOPE_CESANTIA_UF * uf * 0.006, delta=1
+        )
         self.assertGreater(afp.TOPE_CESANTIA_UF, afp.TOPE_IMPONIBLE_UF)
 
     def test_afp_y_salud_se_topan_en_90_uf(self):
@@ -381,7 +523,9 @@ class TestCotizaciones(unittest.TestCase):
         a = afp.proyectar(perfil())
         self.assertAlmostEqual(
             a["saldo_al_jubilar"],
-            a["saldo_actual"] + a["total_cotizado"] + a["rentabilidad_ganada"], delta=1)
+            a["saldo_actual"] + a["total_cotizado"] + a["rentabilidad_ganada"],
+            delta=1,
+        )
 
 
 class TestFondosYTraspasos(unittest.TestCase):
@@ -432,15 +576,19 @@ class TestPension(unittest.TestCase):
     def test_V5_identidad_del_cnu(self):
         a = afp.proyectar(perfil())
         self.assertAlmostEqual(
-            a["cnu"], a["saldo_al_jubilar"] / (12 * a["pension_mensual"]), delta=0.01)
+            a["cnu"], a["saldo_al_jubilar"] / (12 * a["pension_mensual"]), delta=0.01
+        )
 
     def test_saldo_cero_no_paga_pension(self):
         self.assertEqual(afp.pension_mensual(0, "hombre"), 0.0)
         self.assertEqual(afp.pension_mensual(-100, "mujer"), 0.0)
 
     def test_mas_saldo_mas_pension_proporcional(self):
-        self.assertAlmostEqual(afp.pension_mensual(200e6, "hombre"),
-                               2 * afp.pension_mensual(100e6, "hombre"), delta=0.01)
+        self.assertAlmostEqual(
+            afp.pension_mensual(200e6, "hombre"),
+            2 * afp.pension_mensual(100e6, "hombre"),
+            delta=0.01,
+        )
 
 
 class TestEdad(unittest.TestCase):
@@ -456,6 +604,7 @@ class TestEdad(unittest.TestCase):
 
 
 # --- inflación ------------------------------------------------------------
+
 
 class TestInflacion(unittest.TestCase):
 
@@ -483,13 +632,16 @@ class TestInflacion(unittest.TestCase):
 
 # --- alineación perfil ↔ escenario ----------------------------------------
 
+
 class TestAlineacionAFP(unittest.TestCase):
     """AUDITORIA #3 — la serie de la AFP y la proyección tienen orígenes distintos."""
 
     @staticmethod
     def _alinear(serie, desfase):
-        return [serie[j] if 0 <= (j := desfase + k) < len(serie) else None
-                for k in range(len(serie) - desfase)]
+        return [
+            serie[j] if 0 <= (j := desfase + k) < len(serie) else None
+            for k in range(len(serie) - desfase)
+        ]
 
     def test_sin_desfase_el_primer_mes_es_el_saldo_de_hoy(self):
         serie = [100, 101, 102, 103]
@@ -517,24 +669,43 @@ class TestAlineacionAFP(unittest.TestCase):
         serie = [pr["saldo_actual"]] + pr["serie_mensual"]
         al = self._alinear(serie, desfase)
         y, m = int(p["nacimiento"][:4]), int(p["nacimiento"][5:7])
-        desde = ((y + afp.EDAD_PENSION[p["sexo"]] - p["inicio_anio"]) * 12
-                 + (m - p["inicio_mes"]) + 1)
+        desde = (
+            (y + afp.EDAD_PENSION[p["sexo"]] - p["inicio_anio"]) * 12 + (m - p["inicio_mes"]) + 1
+        )
         self.assertAlmostEqual(al[desde - 1], pr["saldo_al_jubilar"], delta=0.01)
 
 
 # --- sensibilidad ---------------------------------------------------------
 
+
 class TestSensibilidad(unittest.TestCase):
     """AUDITORIA #5 — la proyección viaja con su banda."""
 
     def _escenario(self):
-        return engine.normalize_input(dict(
-            name="s", years=40, model="dividends", appreciation=5.71, dividend_yield=3.5,
-            dividend_tax=0, payout_months=[4, 5, 9, 12], inflation=3.83,
-            income_goal=2500000, index_contributions=True, start_age=36.3, life_age=86.6,
-            retire_to_age=86.6, work_until_age=65, work_until_month=344, spend_mode="goal",
-            pension_monthly=700000, pension_start_month=353, include_pension=True,
-            ranges=[{"start_month": 1, "end_month": 344, "amount": 150000}]))
+        return engine.normalize_input(
+            {
+                "name": "s",
+                "years": 40,
+                "model": "dividends",
+                "appreciation": 5.71,
+                "dividend_yield": 3.5,
+                "dividend_tax": 0,
+                "payout_months": [4, 5, 9, 12],
+                "inflation": 3.83,
+                "income_goal": 2500000,
+                "index_contributions": True,
+                "start_age": 36.3,
+                "life_age": 86.6,
+                "retire_to_age": 86.6,
+                "work_until_age": 65,
+                "work_until_month": 344,
+                "spend_mode": "goal",
+                "pension_monthly": 700000,
+                "pension_start_month": 353,
+                "include_pension": True,
+                "ranges": [{"start_month": 1, "end_month": 344, "amount": 150000}],
+            }
+        )
 
     def test_la_banda_contiene_al_caso_central(self):
         d = self._escenario()
@@ -548,8 +719,10 @@ class TestSensibilidad(unittest.TestCase):
     def test_mas_retorno_estira_el_patrimonio(self):
         d = self._escenario()
         s = engine.sensitivity(d, engine.project(d))
-        self.assertLess(s["casos"]["retorno_baja"]["final_real_balance"],
-                        s["casos"]["retorno_sube"]["final_real_balance"])
+        self.assertLess(
+            s["casos"]["retorno_baja"]["final_real_balance"],
+            s["casos"]["retorno_sube"]["final_real_balance"],
+        )
 
     def test_la_banda_no_es_degenerada(self):
         d = self._escenario()
@@ -560,11 +733,13 @@ class TestSensibilidad(unittest.TestCase):
 
 # --- persistencia ---------------------------------------------------------
 
+
 class TestPersistencia(unittest.TestCase):
     """AUDITORIA #1, #6, #13 — arranque, edad y migraciones."""
 
     def setUp(self):
         import db
+
         self.db = db
         self.original = db.DB_PATH
         self.tmp = tempfile.mkdtemp()
@@ -595,44 +770,81 @@ class TestPersistencia(unittest.TestCase):
         """Un perfil viejo sobrestimaba la pensión: la edad sale de la fecha."""
         self.db.init()
         with sqlite3.connect(self.db.DB_PATH) as c:
-            c.execute("INSERT INTO profile (id, edad, nacimiento, sexo, sueldo_imponible, "
-                      "uf, utm) VALUES (1, 20.0, '1990-05-15', 'hombre', 2500000, "
-                      "40884.32, 71721)")
+            c.execute(
+                "INSERT INTO profile (id, edad, nacimiento, sexo, sueldo_imponible, "
+                "uf, utm) VALUES (1, 20.0, '1990-05-15', 'hombre', 2500000, "
+                "40884.32, 71721)"
+            )
         leido = self.db.get_profile()["profile"]
         self.assertAlmostEqual(leido["edad"], afp.edad_desde("1990-05-15"), places=2)
 
     def test_sueldo_bruto_obsoleto_no_resucita(self):
         self.db.init()
         with sqlite3.connect(self.db.DB_PATH) as c:
-            c.execute("INSERT INTO profile (id, nacimiento, sueldo_bruto, sueldo_imponible) "
-                      "VALUES (1, '1990-05-15', 9999999, 0)")
+            c.execute(
+                "INSERT INTO profile (id, nacimiento, sueldo_bruto, sueldo_imponible) "
+                "VALUES (1, '1990-05-15', 9999999, 0)"
+            )
         self.db.init()
         with sqlite3.connect(self.db.DB_PATH) as c:
             self.assertEqual(
-                c.execute("SELECT sueldo_imponible FROM profile WHERE id=1").fetchone()[0], 0)
+                c.execute("SELECT sueldo_imponible FROM profile WHERE id=1").fetchone()[0], 0
+            )
 
     def test_borrar_un_escenario_borra_sus_tramos(self):
         self.db.init()
-        guardado = self.db.save_scenario(engine.normalize_input(dict(
-            name="x", years=10, model="simple", annual_return=5,
-            ranges=[{"start_month": 1, "end_month": 12, "amount": 100}])))
+        guardado = self.db.save_scenario(
+            engine.normalize_input(
+                {
+                    "name": "x",
+                    "years": 10,
+                    "model": "simple",
+                    "annual_return": 5,
+                    "ranges": [{"start_month": 1, "end_month": 12, "amount": 100}],
+                }
+            )
+        )
         self.assertTrue(self.db.delete_scenario(guardado["id"]))
         with sqlite3.connect(self.db.DB_PATH) as c:
-            self.assertEqual(c.execute(
-                "SELECT count(*) FROM contribution_range WHERE scenario_id = ?",
-                (guardado["id"],)).fetchone()[0], 0)
+            self.assertEqual(
+                c.execute(
+                    "SELECT count(*) FROM contribution_range WHERE scenario_id = ?",
+                    (guardado["id"],),
+                ).fetchone()[0],
+                0,
+            )
 
     def test_el_escenario_guardado_se_recupera_igual(self):
         self.db.init()
-        datos = engine.normalize_input(dict(
-            name="ida y vuelta", years=25, model="dividends", appreciation=4.2,
-            dividend_yield=5.5, dividend_tax=17, inflation=3.5, income_goal=1_500_000,
-            payout_months=[3, 9], reinvest=False, index_contributions=True,
-            ranges=[{"start_month": 1, "end_month": 120, "amount": 250000}]))
+        datos = engine.normalize_input(
+            {
+                "name": "ida y vuelta",
+                "years": 25,
+                "model": "dividends",
+                "appreciation": 4.2,
+                "dividend_yield": 5.5,
+                "dividend_tax": 17,
+                "inflation": 3.5,
+                "income_goal": 1_500_000,
+                "payout_months": [3, 9],
+                "reinvest": False,
+                "index_contributions": True,
+                "ranges": [{"start_month": 1, "end_month": 120, "amount": 250000}],
+            }
+        )
         guardado = self.db.save_scenario(datos)
         leido = self.db.get_scenario(guardado["id"])
-        for campo in ("name", "years", "appreciation", "dividend_yield", "dividend_tax",
-                      "inflation", "income_goal", "reinvest", "index_contributions"):
+        for campo in (
+            "name",
+            "years",
+            "appreciation",
+            "dividend_yield",
+            "dividend_tax",
+            "inflation",
+            "income_goal",
+            "reinvest",
+            "index_contributions",
+        ):
             self.assertEqual(leido[campo], datos[campo], campo)
         self.assertEqual(leido["payout_months"], "3,9")
         self.assertEqual(leido["ranges"], datos["ranges"])
@@ -640,34 +852,37 @@ class TestPersistencia(unittest.TestCase):
 
 # --- validación de entrada ------------------------------------------------
 
+
 class TestValidacion(unittest.TestCase):
 
     def test_horizonte_fuera_de_rango(self):
         for years in (0, 101, "abc", None):
             with self.assertRaises(engine.ValidationError):
-                engine.normalize_input(dict(years=years, ranges=[]))
+                engine.normalize_input({"years": years, "ranges": []})
 
     def test_inflacion_de_menos_cien_se_rechaza(self):
         with self.assertRaises(engine.ValidationError):
-            engine.normalize_input(dict(years=10, inflation=-100, ranges=[]))
+            engine.normalize_input({"years": 10, "inflation": -100, "ranges": []})
 
     def test_inflacion_cero_o_negativa_es_valida(self):
         for infl in (0, -2, -50):
-            r = escenario(inflation=infl, years=5,
-                          ranges=[{"start_month": 1, "end_month": 60, "amount": 100000}])
+            r = escenario(
+                inflation=infl,
+                years=5,
+                ranges=[{"start_month": 1, "end_month": 60, "amount": 100000}],
+            )
             self.assertGreater(r["final_balance"], 0)
 
     def test_modelo_desconocido(self):
         with self.assertRaises(engine.ValidationError):
-            engine.normalize_input(dict(years=10, model="magia", ranges=[]))
+            engine.normalize_input({"years": 10, "model": "magia", "ranges": []})
 
     def test_meta_negativa_se_rechaza(self):
         with self.assertRaises(engine.ValidationError):
-            engine.normalize_input(dict(years=10, income_goal=-1, ranges=[]))
+            engine.normalize_input({"years": 10, "income_goal": -1, "ranges": []})
 
     def test_horizonte_extremo_no_revienta(self):
-        r = escenario(years=100, ranges=[{"start_month": 1, "end_month": 1200,
-                                          "amount": 100000}])
+        r = escenario(years=100, ranges=[{"start_month": 1, "end_month": 1200, "amount": 100000}])
         self.assertEqual(r["total_months"], 1200)
         self.assertGreater(r["final_balance"], 0)
 

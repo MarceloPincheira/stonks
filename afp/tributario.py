@@ -1,4 +1,5 @@
 """Impuesto único de segunda categoría (art. 42 N°1 y 52 de la LIR)."""
+
 from __future__ import annotations
 
 from .parametros import IUSC

@@ -3,6 +3,7 @@
 Es la única puerta de entrada al motor: todo lo que sigue asume que el diccionario ya
 tiene todas las claves y los rangos verificados.
 """
+
 from __future__ import annotations
 
 from datetime import date as _date
@@ -22,7 +23,7 @@ def _num(payload: Payload, key: str, default: Any) -> int:
     try:
         return int(value)
     except (TypeError, ValueError):
-        raise ValidationError(f"El campo '{key}' debe ser un número entero.")
+        raise ValidationError(f"El campo '{key}' debe ser un número entero.") from None
 
 
 def _pct(payload: Payload, key: str, default: float = 0.0) -> float:
@@ -32,7 +33,7 @@ def _pct(payload: Payload, key: str, default: float = 0.0) -> float:
     try:
         return float(value)
     except (TypeError, ValueError):
-        raise ValidationError(f"El campo '{key}' debe ser numérico.")
+        raise ValidationError(f"El campo '{key}' debe ser numérico.") from None
 
 
 def normalize_input(payload: Payload) -> Escenario:
@@ -40,7 +41,7 @@ def normalize_input(payload: Payload) -> Escenario:
     try:
         years = int(payload.get("years"))
     except (TypeError, ValueError):
-        raise ValidationError("El horizonte en años debe ser numérico.")
+        raise ValidationError("El horizonte en años debe ser numérico.") from None
     if years < 1 or years > 100:
         raise ValidationError("El horizonte debe estar entre 1 y 100 años.")
 
@@ -80,7 +81,7 @@ def normalize_input(payload: Payload) -> Escenario:
         try:
             m = int(raw)
         except (TypeError, ValueError):
-            raise ValidationError("Los meses de pago deben ser números del 1 al 12.")
+            raise ValidationError("Los meses de pago deben ser números del 1 al 12.") from None
         if not 1 <= m <= 12:
             raise ValidationError("Los meses de pago deben estar entre 1 y 12.")
         if m not in payout_months:
@@ -90,14 +91,14 @@ def normalize_input(payload: Payload) -> Escenario:
         raise ValidationError("Define al menos un mes de pago de dividendos.")
 
     raw_ranges = payload.get("ranges") or []
-    ranges = []
+    ranges: list[Tramo] = []
     for i, r in enumerate(raw_ranges, start=1):
         try:
             start = int(r.get("start_month"))
             end = int(r.get("end_month"))
             amount = float(r.get("amount"))
         except (TypeError, ValueError):
-            raise ValidationError(f"Tramo {i}: los valores deben ser numéricos.")
+            raise ValidationError(f"Tramo {i}: los valores deben ser numéricos.") from None
         if start < 1:
             raise ValidationError(f"Tramo {i}: el mes inicial debe ser 1 o mayor.")
         if end < start:
@@ -122,7 +123,7 @@ def normalize_input(payload: Payload) -> Escenario:
     if not 1 <= start_month <= 12:
         raise ValidationError("El mes de inicio debe estar entre 1 y 12.")
 
-    lump_sums = []
+    lump_sums: list[AporteExtraordinario] = []
     for raw in payload.get("lump_sums") or []:
         amount = _pct(raw, "amount")
         if amount < 0:
@@ -131,7 +132,7 @@ def normalize_input(payload: Payload) -> Escenario:
             year = int(raw.get("year"))
             month = int(raw.get("month"))
         except (TypeError, ValueError):
-            raise ValidationError("El aporte extraordinario necesita mes y año.")
+            raise ValidationError("El aporte extraordinario necesita mes y año.") from None
         if not 1 <= month <= 12:
             raise ValidationError("El mes del aporte extraordinario debe estar entre 1 y 12.")
         if not 1900 <= year <= 2200:
@@ -166,7 +167,7 @@ def normalize_input(payload: Payload) -> Escenario:
         try:
             pension_start_month = int(pension_start_month)
         except (TypeError, ValueError):
-            raise ValidationError("El mes de inicio de la pensión debe ser numérico.")
+            raise ValidationError("El mes de inicio de la pensión debe ser numérico.") from None
         if pension_start_month < 1:
             pension_start_month = 1
 
@@ -196,8 +197,9 @@ def normalize_input(payload: Payload) -> Escenario:
         "afp_summary": payload.get("afp_summary"),
         "spend_mode": spend_mode,
         # los None son meses anteriores al inicio de la serie AFP: huecos, no ceros
-        "afp_monthly": [None if x is None else float(x)
-                        for x in (payload.get("afp_monthly") or [])],
+        "afp_monthly": [
+            None if x is None else float(x) for x in (payload.get("afp_monthly") or [])
+        ],
         "include_pension": bool(payload.get("include_pension", True)),
         "pension_monthly": pension_monthly,
         "pension_start_month": pension_start_month,

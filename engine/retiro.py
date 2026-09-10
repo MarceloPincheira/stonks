@@ -1,4 +1,5 @@
 """Fase de desacumulación: consumir el patrimonio hasta la edad objetivo."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -51,17 +52,19 @@ def _retirement_path(
         portfolio = max(0.0, portfolio - del_fondo_real + sobra) * (1 + monthly_rate)
 
         if rows:
-            detalle.append({
-                "month": m,
-                "balance": round(portfolio, 2),
-                "need": round(necesita, 2),
-                "pension": round(pension, 2),
-                "dividend": round(dividendo, 2),
-                "from_portfolio": round(del_fondo_real, 2),
-                "shortfall": round(del_fondo - del_fondo_real, 2),
-                "need_real": round(spend_today, 2),
-                "balance_real": round(portfolio / d, 2),
-            })
+            detalle.append(
+                {
+                    "month": m,
+                    "balance": round(portfolio, 2),
+                    "need": round(necesita, 2),
+                    "pension": round(pension, 2),
+                    "dividend": round(dividendo, 2),
+                    "from_portfolio": round(del_fondo_real, 2),
+                    "shortfall": round(del_fondo - del_fondo_real, 2),
+                    "need_real": round(spend_today, 2),
+                    "balance_real": round(portfolio / d, 2),
+                }
+            )
     return detalle, agotado, portfolio
 
 

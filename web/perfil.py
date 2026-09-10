@@ -3,15 +3,15 @@
 Aquí se valida el perfil y se alinean las dos líneas de tiempo: la serie de la AFP arranca
 hoy y la proyección de la inversión en la fecha que fije el perfil.
 """
+
 from __future__ import annotations
 
 from datetime import date
-from typing import Any
 
-from engine.tipos import Payload, Perfil
 import afp
 import db
 import engine
+from engine.tipos import Payload, Perfil
 
 
 def con_perfil(payload: Payload) -> Payload:
@@ -28,8 +28,7 @@ def con_perfil(payload: Payload) -> Payload:
     perfil = datos.get("profile")
     if not perfil:
         return payload
-    payload = {**payload,
-               "start_year": perfil["inicio_anio"], "start_month": perfil["inicio_mes"]}
+    payload = {**payload, "start_year": perfil["inicio_anio"], "start_month": perfil["inicio_mes"]}
     try:
         proyeccion = afp.proyectar(perfil, trabajo_hasta=payload.get("work_until_age") or None)
     except (KeyError, ValueError):
@@ -61,35 +60,52 @@ def con_perfil(payload: Payload) -> Payload:
     # inicio_mes/inicio_anio, que no tiene por qué coincidir con el cumpleaños.
     y, m, _ = (int(x) for x in str(perfil["nacimiento"]).split("-")[:3])
     anio_pension = y + afp.EDAD_PENSION[perfil["sexo"]]
-    desde = ((anio_pension - perfil["inicio_anio"]) * 12
-             + (m - perfil["inicio_mes"]) + 1)
+    desde = (anio_pension - perfil["inicio_anio"]) * 12 + (m - perfil["inicio_mes"]) + 1
     # Mes de la proyección en que se deja de trabajar: ahí se cortan las cotizaciones
     # y también los aportes al fondo, que salen del mismo sueldo.
     fin_trabajo = proyeccion["trabajo_hasta"]
-    hasta_mes = int(round((fin_trabajo - edad_inicio) * 12))
+    hasta_mes = round((fin_trabajo - edad_inicio) * 12)
 
-    return {**payload,
-            "pension_monthly": proyeccion["pension_mensual"],
-            "pension_start_month": max(1, desde),
-            "start_age": round(edad_inicio, 2),
-            "life_age": proyeccion["edad_final"],
-            "work_until_age": fin_trabajo,
-            "work_until_month": max(0, hasta_mes),
-            "afp_monthly": alineada,
-            "afp_summary": {k: proyeccion[k] for k in (
-                "saldo_actual", "saldo_al_jubilar", "pension_mensual", "edad_pension",
-                "fondo_inicial", "fondo_final", "topado", "tope_imponible", "descuentos",
-                "trabajo_hasta", "meses_cotizando", "cnu", "expectativa_vida")}}
+    return {
+        **payload,
+        "pension_monthly": proyeccion["pension_mensual"],
+        "pension_start_month": max(1, desde),
+        "start_age": round(edad_inicio, 2),
+        "life_age": proyeccion["edad_final"],
+        "work_until_age": fin_trabajo,
+        "work_until_month": max(0, hasta_mes),
+        "afp_monthly": alineada,
+        "afp_summary": {
+            k: proyeccion[k]
+            for k in (
+                "saldo_actual",
+                "saldo_al_jubilar",
+                "pension_mensual",
+                "edad_pension",
+                "fondo_inicial",
+                "fondo_final",
+                "topado",
+                "tope_imponible",
+                "descuentos",
+                "trabajo_hasta",
+                "meses_cotizando",
+                "cnu",
+                "expectativa_vida",
+            )
+        },
+    }
 
 
 def normalizar_perfil(payload: Payload) -> Perfil:
     """Valida el perfil; los campos numéricos llegan como texto desde el formulario."""
-    def num(key: str, default: float = 0.0, minimo: float | None = None,
-            maximo: float | None = None) -> float:
+
+    def num(
+        key: str, default: float = 0.0, minimo: float | None = None, maximo: float | None = None
+    ) -> float:
         try:
             v = float(payload.get(key, default) or default)
         except (TypeError, ValueError):
-            raise engine.ValidationError(f"El campo '{key}' debe ser numérico.")
+            raise engine.ValidationError(f"El campo '{key}' debe ser numérico.") from None
         if minimo is not None and v < minimo:
             raise engine.ValidationError(f"El campo '{key}' no puede ser menor que {minimo}.")
         if maximo is not None and v > maximo:
@@ -113,10 +129,11 @@ def normalizar_perfil(payload: Payload) -> Perfil:
     try:
         edad = afp.edad_desde(nacimiento)
     except (ValueError, IndexError, AttributeError):
-        raise engine.ValidationError("Ingresa una fecha de nacimiento válida.")
+        raise engine.ValidationError("Ingresa una fecha de nacimiento válida.") from None
     if not 15 <= edad <= 100:
         raise engine.ValidationError(
-            "La edad derivada de esa fecha está fuera de rango (15 a 100).")
+            "La edad derivada de esa fecha está fuera de rango (15 a 100)."
+        )
     if edad >= afp.EDAD_PENSION[sexo]:
         raise engine.ValidationError(
             f"La edad ya alcanzó la de pensión ({afp.EDAD_PENSION[sexo]}): "

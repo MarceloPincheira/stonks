@@ -6,15 +6,38 @@ de cambio flotante en 1999, así que los años anteriores (inflación de 30% en 
 convergiendo desde el ciclo inflacionario del siglo XX) pertenecen a otro régimen
 monetario y mezclarlos sesgaría la estimación al alza.
 """
+
 from __future__ import annotations
 
-from typing import Iterable
+from collections.abc import Iterable
 
 IPC_CL = {
-    2000: 4.5, 2001: 2.6, 2002: 2.8, 2003: 1.1, 2004: 2.4, 2005: 3.7, 2006: 2.6,
-    2007: 7.8, 2008: 7.1, 2009: -1.4, 2010: 3.0, 2011: 4.4, 2012: 1.5, 2013: 3.0,
-    2014: 4.6, 2015: 4.4, 2016: 2.7, 2017: 2.3, 2018: 2.6, 2019: 3.0, 2020: 3.0,
-    2021: 7.2, 2022: 12.8, 2023: 3.9, 2024: 4.5, 2025: 4.2,
+    2000: 4.5,
+    2001: 2.6,
+    2002: 2.8,
+    2003: 1.1,
+    2004: 2.4,
+    2005: 3.7,
+    2006: 2.6,
+    2007: 7.8,
+    2008: 7.1,
+    2009: -1.4,
+    2010: 3.0,
+    2011: 4.4,
+    2012: 1.5,
+    2013: 3.0,
+    2014: 4.6,
+    2015: 4.4,
+    2016: 2.7,
+    2017: 2.3,
+    2018: 2.6,
+    2019: 3.0,
+    2020: 3.0,
+    2021: 7.2,
+    2022: 12.8,
+    2023: 3.9,
+    2024: 4.5,
+    2025: 4.2,
 }
 
 LAST_YEAR = max(IPC_CL)

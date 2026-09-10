@@ -1,6 +1,9 @@
 # Stonks -- atajos de desarrollo. Sin dependencias: sólo Python 3 de la stdlib.
 #
-#   make test            pruebas del modelo y de estilo (PEP 8 / PEP 484)
+#   make test            pruebas del modelo
+#   make lint            ruff + black + isort, sin modificar nada
+#   make format          aplica el formato
+#   make dev             instala las herramientas de desarrollo en .venv
 #   make init            levanta todo en el puerto por defecto (o el primero libre)
 #   make init PORT=9000  fija otro puerto de partida
 #   make stop            mata el servidor que esté escuchando en PORT
@@ -9,7 +12,7 @@
 PORT ?= 8420
 URL  := http://127.0.0.1:$(PORT)
 
-.PHONY: init run db stop restart check help test
+.PHONY: init run db stop restart check help test lint format dev
 
 ## init: prepara la base y arranca el servidor
 init: check db run
@@ -19,9 +22,28 @@ check:
 	@python3 -c 'import sys; raise SystemExit(0 if sys.version_info >= (3, 9) else 1)' \
 	  || { echo "Necesitas Python 3.9 o superior (tienes $$(python3 -V 2>&1))."; exit 1; }
 
-## test: pruebas del modelo y guardias de estilo (no tocan stonks.db)
+## test: pruebas del modelo (no tocan stonks.db)
 test:
 	@python3 -m unittest discover -p 'test_*.py' -v
+
+## lint: analiza el código con ruff y verifica el formato (no toca nada)
+lint:
+	@test -x .venv/bin/ruff || { echo "Falta el entorno de desarrollo: make dev"; exit 1; }
+	@.venv/bin/ruff check . && .venv/bin/black --check . && .venv/bin/isort --check-only .
+
+## format: aplica black, isort y los arreglos automáticos de ruff
+format:
+	@test -x .venv/bin/black || { echo "Falta el entorno de desarrollo: make dev"; exit 1; }
+	@.venv/bin/ruff check --fix . ; .venv/bin/isort . ; .venv/bin/black .
+
+## dev: crea .venv con las herramientas de desarrollo y engancha el hook de git
+##      la app NO las necesita: corre con la stdlib del Python del sistema
+dev:
+	@python3 -m venv .venv
+	@.venv/bin/pip install --quiet --upgrade pip
+	@.venv/bin/pip install --quiet black isort ruff pre-commit
+	@.venv/bin/pre-commit install
+	@echo "Listo: make lint, make format, y pre-commit corre solo al commitear."
 
 ## db: crea la base y aplica las migraciones pendientes
 db:

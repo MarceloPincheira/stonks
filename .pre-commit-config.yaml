@@ -1,0 +1,54 @@
+# Formato y análisis estático antes de cada commit.
+#
+# pre-commit instala cada herramienta en su propio entorno aislado, así que basta con
+# tener pre-commit: no hace falta que black, isort y ruff estén en el PATH ni en un venv
+# compartido. La app en sí sigue sin dependencias — esto es sólo para desarrollar.
+#
+#   .venv/bin/pre-commit install        engancha el hook de git
+#   .venv/bin/pre-commit run --all      pásalo por todo el repo
+default_language_version:
+  python: python3
+
+# static/vendor/ son Chart.js y Grid.js tal como se descargaron: formatearlos ensuciaría
+# el diff contra el original y haría más difícil verificar que no se tocaron.
+exclude: ^static/vendor/
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-toml
+      - id: check-merge-conflict
+      # La base guarda sueldo, saldo AFP y fecha de nacimiento: nunca debe versionarse.
+      - id: check-added-large-files
+        args: ["--maxkb=512"]
+
+  - repo: https://github.com/pycqa/isort
+    rev: 9.0.1
+    hooks:
+      - id: isort
+
+  - repo: https://github.com/psf/black
+    rev: 26.5.1
+    hooks:
+      - id: black
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.16.6
+    hooks:
+      - id: ruff-check
+        args: ["--fix"]
+
+  - repo: local
+    hooks:
+      # Las pruebas corren con la stdlib y tardan medio segundo: no hay razón para
+      # dejar que un commit rompa el modelo y enterarse después.
+      - id: pruebas
+        name: pruebas del modelo
+        entry: python3 -m unittest discover -p 'test_*.py'
+        language: system
+        pass_filenames: false
+        always_run: true

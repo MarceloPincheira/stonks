@@ -53,13 +53,32 @@ El frontend usa **Chart.js** (gráfico) y **Grid.js** (tabla), ambas vanilla y *
 > Si tocas un `.py`, reinicia el servidor (`make restart`): Python mantiene los módulos
 > cargados en memoria.
 
-Las pruebas corren con `make test` (80 casos, stdlib, sin dependencias) y no tocan `stonks.db`:
-71 verifican el modelo y 9 son guardias de estilo.
+Las pruebas corren con `make test` (73 casos, stdlib) y no tocan `stonks.db`.
 
-El código Python sigue **PEP 8** con el límite de línea en 99 columnas —que la propia PEP
-autoriza subir desde 79— y lleva anotaciones de tipo **PEP 484** en toda su superficie
-pública. Las dos cosas se verifican en `test_estilo.py` en vez de depender de que alguien
-tenga un linter instalado: `setup.cfg` deja la configuración escrita por si lo hay.
+### Desarrollo
+
+**La app no tiene dependencias**: corre con la stdlib del Python del sistema. Lo que sigue
+es sólo para trabajar en el código.
+
+```bash
+make dev        # crea .venv con black, isort, ruff y pre-commit, y engancha el hook
+make lint       # analiza sin modificar nada
+make format     # aplica el formato
+make test       # las pruebas del modelo
+```
+
+`pre-commit` corre solo al commitear: formatea, analiza y pasa las pruebas antes de dejar
+pasar el commit. Cada herramienta se instala en su propio entorno aislado, así que basta
+con tener `pre-commit`.
+
+El código sigue **PEP 8** con el límite de línea en 99 columnas —que la propia PEP autoriza
+subir desde 79 cuando el equipo lo prefiere— y lleva anotaciones **PEP 484** en toda su
+superficie pública. La configuración vive en `pyproject.toml`.
+
+El reparto de trabajo entre herramientas es deliberado: **ruff** cubre el estilo estático y
+la cobertura de anotaciones, **black** e **isort** imponen el formato, y `test_estilo.py`
+guarda lo único que ningún analizador estático hace — que las anotaciones **resuelvan en
+tiempo de ejecución**, porque con `from __future__ import annotations` son sólo texto.
 
 La interfaz es **reactiva**: cualquier cambio en los parámetros o en los tramos vuelve a
 proyectar solo (debounce de 220 ms), sin botón de calcular. El badge junto a "Resultado"
@@ -565,9 +584,10 @@ Ojo con el promedio de rentabilidad total: entre 2022 y 2025 da ~21% anual compu
 | `db.py` | Esquema, migraciones y acceso a SQLite: escenarios, perfil, plan de aporte y aportes extraordinarios |
 | `inflation.py` | Serie del IPC chileno y ventanas de estimación |
 | `test_stonks.py` | Pruebas del modelo (`make test`) |
-| `test_estilo.py` | Guardias de PEP 8 y de cobertura de anotaciones |
+| `test_estilo.py` | Que las anotaciones resuelvan en ejecución (lo que ruff no ve) |
 | `engine/tipos.py` | Tipos del dominio compartidos (`Tramo`, `Escenario`, `Resultado`…) |
-| `setup.cfg` | Configuración de linters, por si se instala alguno |
+| `pyproject.toml` | Configuración de black, isort y ruff |
+| `.pre-commit-config.yaml` | Los hooks que corren antes de cada commit |
 | `static/js/` | Frontend en módulos ES nativos, sin build: `main.js` cablea el DOM, el resto expone funciones |
 | `static/css/` | Hojas por responsabilidad: `base`, `componentes`, `responsive`, `vendor`, `tooltip`, `modal`, `docs` |
 | `static/vendor/` | Chart.js y Grid.js servidos localmente |

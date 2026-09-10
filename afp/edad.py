@@ -1,4 +1,5 @@
 """Edad exacta a partir de la fecha de nacimiento."""
+
 from __future__ import annotations
 
 from datetime import date
@@ -13,7 +14,7 @@ def edad_desde(nacimiento: str, hoy: date | None = None) -> float:
     # fracción transcurrida desde el último cumpleaños
     try:
         ultimo = nace.replace(year=nace.year + años)
-    except ValueError:                      # 29 de febrero en año no bisiesto
+    except ValueError:  # 29 de febrero en año no bisiesto
         ultimo = nace.replace(year=nace.year + años, day=28)
     try:
         siguiente = nace.replace(year=nace.year + años + 1)

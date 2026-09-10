@@ -1,0 +1,52 @@
+# Herramientas de DESARROLLO. La app no cambia: sigue corriendo con la stdlib de Python 3
+# y sin instalar nada. Estas configuraciones sólo gobiernan el formato y el análisis
+# estático de quien trabaje en el código.
+
+[tool.black]
+# PEP 8 autoriza subir el límite de 79 columnas cuando el equipo lo prefiere. Este
+# proyecto usa 99: las fórmulas financieras y las consultas SQL se leen mejor enteras.
+line-length = 99
+target-version = ["py39"]
+
+[tool.isort]
+# "black" es obligatorio si conviven: sin él los dos discuten sobre paréntesis y comas.
+profile = "black"
+line_length = 99
+known_first_party = ["afp", "db", "engine", "inflation", "web"]
+
+[tool.ruff]
+line-length = 99
+# El Makefile exige Python 3.9 como mínimo: sin esto, pyupgrade propondría sintaxis
+# de versiones más nuevas que romperían el arranque en la versión soportada.
+target-version = "py39"
+exclude = [".venv", "static", "__pycache__"]
+
+[tool.ruff.lint]
+select = [
+    "E", "W",   # pycodestyle: el estilo que PEP 8 define
+    "F",        # pyflakes: nombres sin usar, imports muertos, variables no definidas
+    "B",        # bugbear: trampas reales (mutables por defecto, except amplio…)
+    "UP",       # pyupgrade: sintaxis obsoleta para la versión soportada
+    "ANN",      # PEP 484: que no se pierda la cobertura de anotaciones
+    "C4",       # comprensiones innecesariamente indirectas
+    "SIM",      # simplificaciones de lógica
+    "RUF",      # reglas propias de ruff
+]
+ignore = [
+    # isort es quien ordena los imports en este proyecto; que ruff no discuta con él.
+    "I001",
+    # `Any` se usa a propósito donde el diccionario es genuinamente heterogéneo: el
+    # escenario normalizado y el resultado de la proyección tienen decenas de claves.
+    "ANN401",
+    # El código está escrito en español y usa tipografía correcta: ×, —, ≈, ñ, tildes.
+    # Estas reglas buscan homoglifos de ataque y confunden la prosa con un problema.
+    "RUF001", "RUF002", "RUF003",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Las pruebas no necesitan anotaciones: su firma es siempre (self) -> None.
+"test_*.py" = ["ANN"]
+
+[tool.ruff.format]
+# El formateo lo hace black; ruff sólo analiza.
+exclude = ["*"]

@@ -3,9 +3,10 @@
 El fondo puede ser uno fijo -- salvo la salida obligatoria del A -- o una mezcla, si se
 contrató un esquema de traspasos por edad, que avanza 20% al año.
 """
+
 from __future__ import annotations
 
-from .parametros import (EDAD_SALIDA_FONDO_A, HITOS, PASO_ANUAL, RENTABILIDAD_REAL, TRAMOS)
+from .parametros import EDAD_SALIDA_FONDO_A, HITOS, PASO_ANUAL, RENTABILIDAD_REAL, TRAMOS
 
 
 def _mezcla_a_edad(edad: float, sexo: str, contrato: str) -> dict[str, float]:
@@ -38,8 +39,7 @@ def fondo_por_defecto(edad: float, sexo: str) -> str:
     return "D"
 
 
-def fondo_vigente(edad: float, fondo_elegido: str, sexo: str,
-                  destino_salida_a: str = "B") -> str:
+def fondo_vigente(edad: float, fondo_elegido: str, sexo: str, destino_salida_a: str = "B") -> str:
     """El fondo A no admite el saldo obligatorio desde los 56 (hombres) o 51 (mujeres).
 
     La ley obliga a salir, pero deja elegir cualquiera de los otros cuatro: el destino
@@ -51,9 +51,13 @@ def fondo_vigente(edad: float, fondo_elegido: str, sexo: str,
     return fondo_elegido
 
 
-def rentabilidad_a_edad(edad: float, fondo_elegido: str, sexo: str,
-                        trayectoria: str = "fijo",
-                        destino_salida_a: str = "B") -> float:
+def rentabilidad_a_edad(
+    edad: float,
+    fondo_elegido: str,
+    sexo: str,
+    trayectoria: str = "fijo",
+    destino_salida_a: str = "B",
+) -> float:
     """Rentabilidad real esperada a esa edad, según la trayectoria elegida.
 
     'fijo'    -> te quedas en tu fondo, salvo la salida obligatoria del A.
@@ -67,9 +71,13 @@ def rentabilidad_a_edad(edad: float, fondo_elegido: str, sexo: str,
     return sum(RENTABILIDAD_REAL[f] * p for f, p in pesos.items())
 
 
-def fondo_a_edad(edad: float, fondo_elegido: str, sexo: str,
-                 trayectoria: str = "fijo",
-                 destino_salida_a: str = "B") -> str:
+def fondo_a_edad(
+    edad: float,
+    fondo_elegido: str,
+    sexo: str,
+    trayectoria: str = "fijo",
+    destino_salida_a: str = "B",
+) -> str:
     """Etiqueta legible del fondo (o mezcla) en que estarías a esa edad."""
     if trayectoria == "fijo":
         return fondo_vigente(edad, fondo_elegido, sexo, destino_salida_a)
